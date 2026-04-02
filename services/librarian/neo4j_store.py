@@ -150,3 +150,27 @@ class Neo4jStore:
             if record:
                 return dict(record["p"])
             return None
+
+    def create_dependency_relationship(self, from_task_id: str, to_task_id: str) -> bool:
+        """Create a DEPENDS_ON relationship between two tasks.
+        
+        Args:
+            from_task_id: The task that has the dependency
+            to_task_id: The task that is depended upon
+            
+        Returns:
+            True if relationship was created, False otherwise
+        """
+        with self.driver.session() as session:
+            result = session.run(
+                """
+                MATCH (from:Task {task_id: $from_id})
+                MATCH (to:Task {task_id: $to_id})
+                CREATE (from)-[:DEPENDS_ON]->(to)
+                RETURN true
+                """,
+                from_id=from_task_id,
+                to_id=to_task_id
+            )
+            record = result.single()
+            return record is not None and record["true"] is not None

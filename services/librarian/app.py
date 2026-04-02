@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from services.librarian.config import settings
 import sys
@@ -55,6 +55,16 @@ class IngestInput(BaseModel):
     metadata: Optional[dict] = None
 
 
+class TaskInput(BaseModel):
+    """Input model for creating a task"""
+    task_id: str
+    title: str
+    status: str = "PENDING"
+    dependencies: list[str] = Field(default_factory=list)
+    contract: dict = Field(default_factory=dict)
+    profile_id: Optional[str] = None
+
+
 @app.post("/project-specs", status_code=201)
 def create_project_spec(spec: ProjectSpecInput):
     """Create a new ProjectSpec"""
@@ -92,6 +102,55 @@ def get_ready_tasks():
     """Get tasks where all dependencies are DONE"""
     neo4j = get_neo4j_store()
     return neo4j.get_ready_tasks()
+
+
+@app.post("/tasks", status_code=201)
+def create_task(task: TaskInput):
+    """Create a new task"""
+    neo4j = get_neo4j_store()
+    task_data = {
+        "task_id": task.task_id,
+        "title": task.title,
+        "status": task.status,
+        "dependencies": task.dependencies,
+        "contract": task.contract,
+        "profile_id": task.profile_id
+    }
+    created_task = neo4j.create_task(task_data)
+    
+    # Create dependency relationships
+    for dep_id in task.dependencies:
+        neo4j.create_dependency_relationship(task.task_id, dep_id)
+    
+    return created_task
+
+
+@app.post("/tasks/batch", status_code=201)
+def create_tasks_batch(tasks: list[TaskInput]):
+    """Create multiple tasks with their dependencies (for Atomizer)"""
+    neo4j = get_neo4j_store()
+    created_tasks = []
+    
+    for task in tasks:
+        task_data = {
+            "task_id": task.task_id,
+            "title": task.title,
+            "status": task.status,
+            "dependencies": task.dependencies,
+            "contract": task.contract,
+            "profile_id": task.profile_id
+        }
+        created_task = neo4j.create_task(task_data)
+        created_tasks.append(created_task)
+        
+        # Create dependency relationships
+        for dep_id in task.dependencies:
+            neo4j.create_dependency_relationship(task.task_id, dep_id)
+    
+    return {
+        "count": len(created_tasks),
+        "tasks": created_tasks
+    }
 
 
 @app.post("/ingest")

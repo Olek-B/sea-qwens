@@ -113,11 +113,71 @@ class TestTaskEndpoints:
         mock_stores['neo4j'].get_ready_tasks.return_value = [
             {'task_id': 'task-001', 'title': 'Test task'}
         ]
-        
+
         response = client.get("/tasks/ready")
         assert response.status_code == 200
         assert isinstance(response.json(), list)
         assert len(response.json()) == 1
+
+    def test_create_task(self, client, mock_stores):
+        """Test creating a new task"""
+        mock_stores['neo4j'].create_task.return_value = {
+            'task_id': 'task-002',
+            'title': 'New task',
+            'status': 'PENDING',
+            'dependencies': [],
+            'contract': {},
+            'profile_id': None
+        }
+        mock_stores['neo4j'].create_dependency_relationship.return_value = True
+
+        response = client.post("/tasks", json={
+            "task_id": "task-002",
+            "title": "New task",
+            "status": "PENDING"
+        })
+        assert response.status_code == 201
+        data = response.json()
+        assert data["task_id"] == "task-002"
+        assert data["title"] == "New task"
+
+    def test_create_task_with_dependencies(self, client, mock_stores):
+        """Test creating a task with dependencies"""
+        mock_stores['neo4j'].create_task.return_value = {
+            'task_id': 'task-003',
+            'title': 'Dependent task',
+            'status': 'PENDING',
+            'dependencies': ['task-001', 'task-002'],
+            'contract': {},
+            'profile_id': None
+        }
+        mock_stores['neo4j'].create_dependency_relationship.return_value = True
+
+        response = client.post("/tasks", json={
+            "task_id": "task-003",
+            "title": "Dependent task",
+            "dependencies": ["task-001", "task-002"]
+        })
+        assert response.status_code == 201
+        # Verify dependency relationship was called
+        assert mock_stores['neo4j'].create_dependency_relationship.call_count == 2
+
+    def test_create_tasks_batch(self, client, mock_stores):
+        """Test creating multiple tasks in batch"""
+        mock_stores['neo4j'].create_task.side_effect = [
+            {'task_id': 'batch-001', 'title': 'Batch task 1', 'status': 'PENDING', 'dependencies': [], 'contract': {}, 'profile_id': None},
+            {'task_id': 'batch-002', 'title': 'Batch task 2', 'status': 'PENDING', 'dependencies': ['batch-001'], 'contract': {}, 'profile_id': None}
+        ]
+        mock_stores['neo4j'].create_dependency_relationship.return_value = True
+
+        response = client.post("/tasks/batch", json=[
+            {"task_id": "batch-001", "title": "Batch task 1"},
+            {"task_id": "batch-002", "title": "Batch task 2", "dependencies": ["batch-001"]}
+        ])
+        assert response.status_code == 201
+        data = response.json()
+        assert data["count"] == 2
+        assert len(data["tasks"]) == 2
 
 
 class TestProfileEndpoints:
