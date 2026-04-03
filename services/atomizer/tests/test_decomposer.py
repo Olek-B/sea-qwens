@@ -184,9 +184,81 @@ class TestAtomizerSaveTasks:
         atomizer = Atomizer()
         output_file = tmp_path / "empty_tasks.json"
         atomizer.save_tasks([], str(output_file))
-        
+
         assert output_file.exists()
         import json
         with open(output_file) as f:
             saved_tasks = json.load(f)
         assert saved_tasks == []
+
+
+class TestAtomizerCodeContext:
+    """Tests for Atomizer's code context integration."""
+
+    def test_decompose_uses_code_context_when_available(self, mocker):
+        """Decompose creates extend tasks for features that already exist."""
+        mock_ctx = mocker.Mock()
+        mock_ctx.get_project_overview.return_value = {
+            "project_name": "TestAPI",
+            "total_files": 3,
+            "total_functions": 8,
+            "total_classes": 2,
+            "files": [],
+            "functions": [],
+            "classes": [],
+        }
+        mock_ctx.find_existing_features.return_value = {
+            "User auth": {"found": True, "matches": [{"name": "AuthService", "type": "class"}]},
+            "Health endpoint": {"found": False, "matches": []},
+        }
+        mocker.patch("services.atomizer.decomposer.ProjectCodeContext", return_value=mock_ctx)
+
+        atomizer = Atomizer(librarian_url="http://localhost:8001")
+        project_spec = {
+            "name": "TestAPI",
+            "tech_stack": ["FastAPI"],
+            "features": ["User auth", "Health endpoint"]
+        }
+        tasks = atomizer.decompose(project_spec)
+
+        # Should still return tasks
+        assert isinstance(tasks, list)
+        assert len(tasks) > 0
+
+        # Find the User auth task - should be an extend task
+        auth_tasks = [t for t in tasks if "User auth" in t["title"]]
+        assert len(auth_tasks) > 0
+        assert "Extend existing" in auth_tasks[0]["title"]
+        assert auth_tasks[0]["contract"]["type"] == "extend_feature"
+
+    def test_decompose_handles_missing_code_context_gracefully(self, mocker):
+        """Decompose works when code context is unavailable."""
+        mocker.patch("services.atomizer.decomposer.ProjectCodeContext", side_effect=Exception("Connection refused"))
+
+        atomizer = Atomizer(librarian_url="http://localhost:8001")
+        project_spec = {
+            "name": "NewAPI",
+            "tech_stack": ["FastAPI"],
+            "features": ["User auth"]
+        }
+        tasks = atomizer.decompose(project_spec)
+
+        # Should still work normally
+        assert isinstance(tasks, list)
+        assert len(tasks) > 0
+
+    def test_decompose_creates_extend_feature_contract(self, mocker):
+        """When feature exists, task contract includes existing_code reference."""
+        mock_ctx = mocker.Mock()
+        mock_ctx.get_project_overview.return_value = {"project_name": "X", "total_files": 1, "total_functions": 1, "total_classes": 0, "files": [], "functions": [], "classes": []}
+        mock_ctx.find_existing_features.return_value = {
+            "auth": {"found": True, "matches": [{"name": "AuthService", "type": "class"}]}
+        }
+        mocker.patch("services.atomizer.decomposer.ProjectCodeContext", return_value=mock_ctx)
+
+        atomizer = Atomizer()
+        tasks = atomizer.decompose({"name": "X", "tech_stack": [], "features": ["auth"]})
+
+        feature_tasks = [t for t in tasks if t["contract"].get("type") == "extend_feature"]
+        assert len(feature_tasks) == 1
+        assert feature_tasks[0]["contract"]["existing_code"] == [{"name": "AuthService", "type": "class"}]
