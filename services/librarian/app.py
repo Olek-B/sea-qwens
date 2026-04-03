@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field
 from typing import Optional
 from services.librarian.config import settings
@@ -179,3 +179,78 @@ def increment_profile_usage(profile_name: str):
     if not result:
         raise HTTPException(status_code=404, detail="Profile not found")
     return result
+
+
+# ==================== Code Knowledge Graph Endpoints ====================
+
+@app.get("/code/search")
+def search_code(q: str = Query(..., description="Search query"), type: str = Query("function")):
+    """Search code semantically via ChromaDB and by name via Neo4j."""
+    store = get_chroma_store()
+    vector_results = store.search_code(q)
+    neo4j_store = get_neo4j_store()
+    graph_results = neo4j_store.search_functions(q)
+    return {"query": q, "results": vector_results, "graph_results": graph_results}
+
+
+@app.get("/code/function/{name}")
+def get_function(name: str):
+    """Get function details by name."""
+    neo4j_store = get_neo4j_store()
+    func = neo4j_store.get_function_by_name(name)
+    if not func:
+        raise HTTPException(status_code=404, detail=f"Function '{name}' not found")
+    return func
+
+
+@app.get("/code/function/{name}/callers")
+def get_function_callers(name: str):
+    """Get all functions that call this function."""
+    neo4j_store = get_neo4j_store()
+    callers = neo4j_store.get_callers(name)
+    return {"function": name, "callers": callers}
+
+
+@app.get("/code/function/{name}/callees")
+def get_function_callees(name: str):
+    """Get all functions this function calls."""
+    neo4j_store = get_neo4j_store()
+    callees = neo4j_store.get_callees(name)
+    return {"function": name, "callees": callees}
+
+
+@app.get("/code/function/{name}/full-context")
+def get_function_full_context(name: str, depth: int = Query(2, ge=0, le=5)):
+    """Get function + callers + callees recursively."""
+    neo4j_store = get_neo4j_store()
+    context = neo4j_store.get_full_context(name, depth)
+    if not context:
+        raise HTTPException(status_code=404, detail=f"Function '{name}' not found")
+    return context
+
+
+@app.get("/code/class/{name}")
+def get_class(name: str):
+    """Get class details and methods."""
+    neo4j_store = get_neo4j_store()
+    with neo4j_store.driver.session() as session:
+        result = session.run(
+            "MATCH (c:Class {name: $name}) OPTIONAL MATCH (c)-[:CONTAINS]->(m:Function) RETURN c, collect(m) as methods",
+            name=name
+        )
+        record = result.single()
+        if not record:
+            raise HTTPException(status_code=404, detail=f"Class '{name}' not found")
+        return {"class": dict(record["c"]), "methods": [dict(m) for m in record["methods"] if m]}
+
+
+@app.get("/code/file/{path:path}")
+def get_file_content(path: str):
+    """Get file content by path."""
+    neo4j_store = get_neo4j_store()
+    with neo4j_store.driver.session() as session:
+        result = session.run("MATCH (f:File {path: $path}) RETURN f", path=path)
+        record = result.single()
+        if not record:
+            raise HTTPException(status_code=404, detail=f"File '{path}' not found")
+        return dict(record["f"])
