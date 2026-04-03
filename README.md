@@ -18,14 +18,14 @@
 
 ## Overview
 
-Project Legion orchestrates a fleet of AI coding agents (Qwen profiles) to autonomously implement software projects from a high-level specification. You describe **what** you want; Legion figures out **how** to build it.
+Project Legion orchestrates a fleet of AI coding agents (CLI tools) to autonomously implement software projects from a high-level specification. You describe **what** you want; Legion figures out **how** to build it.
 
 **Core workflow:**
 
 1. **Manager** — interviews the user (or accepts a spec) and creates a `ProjectSpec` in the knowledge base.
-2. **Librarian** — stores project specs, tasks, and profiles in Neo4j (graph) and ChromaDB (vector).
+2. **Librarian** — stores project specs, tasks, and tools in Neo4j (graph) and ChromaDB (vector).
 3. **Atomizer** — decomposes a project spec into atomic, dependency-ordered tasks with contracts.
-4. **Kanban** — continuously polls for ready tasks and dispatches them to healthy, least-used agent profiles.
+4. **Kanban** — continuously polls for ready tasks and dispatches them to healthy, least-used tools.
 5. **Worker** — executes tasks in isolated git worktrees, invoking Qwen Code with task contracts.
 6. **Tester** — validates completed work against contracts (structure, tests, semantics), then merges passing branches.
 
@@ -164,12 +164,12 @@ Answer the prompts to create a `ProjectSpec`, which is sent to the Librarian aut
 
 | Service    | Port | Container           | Description                                        |
 |------------|------|---------------------|----------------------------------------------------|
-| Neo4j      | 7474 | `legion-neo4j`      | Graph database — tasks, dependencies, profiles     |
+| Neo4j      | 7474 | `legion-neo4j`      | Graph database — tasks, dependencies, tools        |
 | Neo4j Bolt | 7687 | `legion-neo4j`      | Bolt protocol for graph queries                    |
 | ChromaDB   | 8000 | `legion-chromadb`   | Vector store — document ingestion & retrieval      |
-| Librarian  | 8001 | `legion-librarian`  | Knowledge service — specs, tasks, profiles, docs   |
+| Librarian  | 8001 | `legion-librarian`  | Knowledge service — specs, tasks, tools, docs      |
 | Atomizer   | 8002 | `legion-atomizer`   | Task decomposition — spec → atomic tasks + contracts |
-| Kanban     | 8003 | `legion-kanban`     | Task dispatcher — polls & assigns to agent profiles |
+| Kanban     | 8003 | `legion-kanban`     | Task dispatcher — polls & assigns to tools          |
 | Worker     | 8004 | `legion-worker`     | Task executor — runs Qwen Code in git worktrees    |
 | Tester     | 8005 | `legion-tester`     | Validator & merger — contract checks, branch merge |
 | Manager    | 8006 | `legion-manager`    | CLI interviewer — interactive spec creation        |
@@ -206,24 +206,25 @@ cp .env.example .env
 
 The `docker-compose.yml` sets internal service URLs (e.g., `NEO4J_URI=neo4j://neo4j:7687`). These differ from the `.env.example` localhost defaults, which are intended for local development outside Docker.
 
-### Agent Profiles
+### Tool Configuration
 
-Agent profiles are defined in `configs/profiles.json`. Each profile has:
+CLI tools are defined in `configs/tools.json`. Each tool entry has:
 
-- **`name`** — unique identifier (e.g., `qwen-agent-01`)
+- **`name`** — human-readable identifier (e.g., `qwen-coder`)
+- **`command`** — non-interactive CLI command (e.g., `qwen --non-interactive`)
 - **`daily_limit`** — max requests per day (default: 1000)
 - **`capabilities`** — skill tags (coding, testing, debugging, etc.)
 - **`health_status`** — `HEALTHY`, `RATE_LIMITED`, or `ERROR`
 - **`consecutive_failures`** — auto-tracked failure counter
 
-The Kanban dispatcher selects the **least-used healthy profile** whose capabilities match the task.
+The Kanban dispatcher selects the **least-used healthy tool** whose capabilities match the task.
 
 ```bash
-# View current profiles
-cat configs/profiles.json | python -m json.tool
+# View current tools
+cat configs/tools.json | python -m json.tool
 ```
 
-To add or modify profiles, edit `configs/profiles.json` and restart the Kanban service.
+To add or modify tools, edit `configs/tools.json` and restart the Kanban service.
 
 ---
 
@@ -234,7 +235,7 @@ To add or modify profiles, edit `configs/profiles.json` and restart the Kanban s
 ```
 legion-implement/
 ├── configs/
-│   └── profiles.json          # Agent profile definitions
+│   └── tools.json             # CLI tool definitions
 ├── docs/
 │   └── superpowers/           # Superpowers skill documentation
 ├── scripts/
@@ -272,9 +273,9 @@ python -m pytest services/manager/tests/ -v
 python -m pytest shared/test_models.py -v
 ```
 
-### Add a New Profile
+### Add a New Tool
 
-1. Edit `configs/profiles.json` and add a new entry to the `profiles` array.
+1. Edit `configs/tools.json` and add a new entry to the `tools` array.
 2. Restart the Kanban service to pick up the changes:
 
 ```bash
@@ -311,8 +312,8 @@ ChromaDB┘                ├──▶ Kanban ──▶ Worker ──▶ Tester
 | POST   | `/tasks/update`           | Update task status                 |
 | GET    | `/tasks/ready`            | Get tasks with all deps satisfied  |
 | POST   | `/ingest`                 | Ingest document into ChromaDB      |
-| GET    | `/profiles/least-used`    | Get least-used healthy profile     |
-| POST   | `/profiles/{name}/increment` | Increment profile usage count  |
+| GET    | `/tools/least-used`       | Get least-used healthy tool        |
+| POST   | `/tools/{name}/increment` | Increment tool usage count         |
 
 ### Atomizer (`:8002`)
 
@@ -357,17 +358,17 @@ ChromaDB┘                ├──▶ Kanban ──▶ Worker ──▶ Tester
 
 ### Rate Limits
 
-If agent profiles hit their daily limit or become rate-limited:
+If tools hit their daily limit or become rate-limited:
 
 ```bash
-# Check profile health via Librarian
-curl http://localhost:8001/profiles/least-used
+# Check tool health via Librarian
+curl http://localhost:8001/tools/least-used
 
-# Reset a profile's counters in Neo4j Browser
+# Reset a tool's counters in Neo4j Browser
 # Open http://localhost:7474 and run:
-# MATCH (p:Profile {name: "qwen-agent-01"})
-# SET p.requests_today = 0, p.consecutive_failures = 0, p.health_status = "HEALTHY"
-# RETURN p
+# MATCH (t:Tool {name: "qwen-coder"})
+# SET t.requests_today = 0, t.consecutive_failures = 0, t.health_status = "HEALTHY"
+# RETURN t
 ```
 
 ### Worktree Conflicts
