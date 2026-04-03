@@ -7,7 +7,7 @@ from fastapi import FastAPI, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 
 from services.worker.executor import TaskExecutor, ExecutionResult
-from shared.models import Task, Profile, TaskStatus
+from shared.models import Task, Tool, TaskStatus
 
 logger = logging.getLogger(__name__)
 

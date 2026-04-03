@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Optional
 from dataclasses import dataclass, field
 
-from shared.models import Task, Profile
+from shared.models import Task, Tool
 
 
 @dataclass
