@@ -1,18 +1,19 @@
+# services/kanban/dispatcher.py
 from datetime import datetime, timezone
 from typing import Optional
 import requests
 import logging
 
-from services.kanban.profile_manager import ProfileManager
+from services.kanban.tool_manager import ToolManager
 
 logger = logging.getLogger(__name__)
 
 
 class DispatchResult:
-    def __init__(self, success: bool, task_id: str, profile_name: str, message: str):
+    def __init__(self, success: bool, task_id: str, tool_name: str, message: str):
         self.success = success
         self.task_id = task_id
-        self.profile_name = profile_name
+        self.tool_name = tool_name
         self.message = message
         self.timestamp = datetime.now(timezone.utc)
 
@@ -27,7 +28,7 @@ class Dispatcher:
     ):
         self.librarian_url = librarian_url
         self.worker_url = worker_url
-        self.profile_manager = ProfileManager(librarian_url)
+        self.tool_manager = ToolManager(librarian_url)
 
     def get_ready_tasks(self) -> list[dict]:
         """Fetch ready tasks from Librarian"""
@@ -41,31 +42,31 @@ class Dispatcher:
 
     def dispatch_task(self, task: dict) -> DispatchResult:
         """Dispatch a single task to a worker"""
-        # Select profile
-        selection = self.profile_manager.select_profile()
+        selection = self.tool_manager.select_tool()
         if not selection:
             return DispatchResult(
                 success=False,
                 task_id=task.get("task_id", "unknown"),
-                profile_name="",
-                message="No healthy profiles available"
+                tool_name="",
+                message="No healthy tools available"
             )
 
-        profile = selection.profile
-        profile_name = profile["name"]
+        tool = selection.tool
+        tool_name = tool["name"]
+        tool_command = tool.get("command", "qwen --non-interactive")
 
         # Mark task as IN_PROGRESS in Librarian
         try:
             requests.post(
                 f"{self.librarian_url}/tasks/update",
                 params={"task_id": task["task_id"]},
-                json={"status": "IN_PROGRESS", "profile_id": profile_name}
+                json={"status": "IN_PROGRESS", "tool_id": tool_name}
             )
         except requests.exceptions.RequestException:
             pass  # Best effort
 
-        # Increment profile usage
-        self.profile_manager.increment_profile_usage(profile_name)
+        # Increment tool usage
+        self.tool_manager.increment_tool_usage(tool_name)
 
         # Dispatch to Worker
         try:
@@ -73,39 +74,40 @@ class Dispatcher:
                 f"{self.worker_url}/execute",
                 json={
                     "task": task,
-                    "profile": profile
+                    "tool_id": tool_name,
+                    "tool_command": tool_command
                 }
             )
 
             # Handle 429 rate limit
             if response.status_code == 429:
-                self.handle_rate_limit(task, profile_name)
+                self.handle_rate_limit(task, tool_name)
                 return DispatchResult(
                     success=False,
                     task_id=task["task_id"],
-                    profile_name=profile_name,
-                    message="Rate limit hit, profile rotated and task re-queued"
+                    tool_name=tool_name,
+                    message="Rate limit hit, tool rotated and task re-queued"
                 )
 
             if response.status_code == 202:
                 return DispatchResult(
                     success=True,
                     task_id=task["task_id"],
-                    profile_name=profile_name,
-                    message=f"Dispatched to worker with profile {profile_name}"
+                    tool_name=tool_name,
+                    message=f"Dispatched to worker with tool {tool_name}"
                 )
             else:
                 return DispatchResult(
                     success=False,
                     task_id=task["task_id"],
-                    profile_name=profile_name,
+                    tool_name=tool_name,
                     message=f"Worker rejected: {response.text}"
                 )
         except requests.exceptions.RequestException as e:
             return DispatchResult(
                 success=False,
                 task_id=task["task_id"],
-                profile_name=profile_name,
+                tool_name=tool_name,
                 message=f"Worker unavailable: {str(e)}"
             )
 
@@ -121,17 +123,15 @@ class Dispatcher:
 
         return dispatched
 
-    def handle_rate_limit(self, task: dict, failed_profile: str):
-        """Handle 429 rate limit by rotating profile and re-queuing"""
+    def handle_rate_limit(self, task: dict, failed_tool: str):
+        """Handle 429 rate limit by rotating tool and re-queuing"""
         logger.warning(
-            f"Rate limit hit for profile {failed_profile}, "
+            f"Rate limit hit for tool {failed_tool}, "
             f"re-queuing task {task['task_id']}"
         )
 
-        # Mark profile as rate-limited
-        self.profile_manager.mark_profile_rate_limited(failed_profile)
+        self.tool_manager.mark_tool_rate_limited(failed_tool)
 
-        # Reset task to PENDING
         try:
             requests.post(
                 f"{self.librarian_url}/tasks/update",
