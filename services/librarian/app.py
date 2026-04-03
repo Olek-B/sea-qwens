@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List
 from services.librarian.config import settings
 import sys
 import os
@@ -254,3 +254,29 @@ def get_file_content(path: str):
         if not record:
             raise HTTPException(status_code=404, detail=f"File '{path}' not found")
         return dict(record["f"])
+
+
+# ==================== Post-Execution Indexer ====================
+
+class FileContent(BaseModel):
+    path: str
+    content: Optional[str] = None
+    language: str = "python"
+
+
+class IndexUpdatedInput(BaseModel):
+    files: List[FileContent]
+
+
+@app.post("/index/updated")
+def index_updated(body: IndexUpdatedInput):
+    """Index changed files after a merge.
+
+    The Tester sends file content directly — the Librarian never reads
+    the filesystem.
+    """
+    from services.librarian.post_indexer import PostIndexer
+    indexer = PostIndexer(get_neo4j_store(), get_chroma_store())
+    file_dicts = [f.model_dump() for f in body.files]
+    result = indexer.index_files(file_dicts)
+    return {"indexed": result}
