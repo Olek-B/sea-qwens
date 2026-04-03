@@ -3,7 +3,6 @@ from contextlib import asynccontextmanager
 from pydantic import BaseModel, Field
 from typing import Optional, List
 from services.librarian.config import settings
-import json
 import logging
 import sys
 import os
@@ -12,29 +11,25 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
 from shared.models import ProjectSpec, Task, TaskStatus, Tool
+from shared.config import load_tools_config
 
 logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Seed tools from configs/tools.json on startup."""
+    """Seed tools from user config on startup."""
     _seed_tools()
     yield
 
 
 def _seed_tools():
-    """Load tools from config file and create them in Neo4j if they don't exist."""
-    config_path = os.path.join(os.path.dirname(__file__), '..', '..', 'configs', 'tools.json')
-    if not os.path.exists(config_path):
-        logger.warning(f"Tools config not found: {config_path}")
-        return
+    """Load tools from user config and create them in Neo4j if they don't exist."""
+    # Resolve repo root for fallback config loading
+    repo_root = os.path.join(os.path.dirname(__file__), '..', '..')
 
-    try:
-        with open(config_path) as f:
-            tools_config = json.load(f)
-    except (json.JSONDecodeError, IOError) as e:
-        logger.error(f"Failed to read tools config: {e}")
+    tools_config = load_tools_config(repo_root=repo_root)
+    if tools_config is None:
         return
 
     neo4j = get_neo4j_store()

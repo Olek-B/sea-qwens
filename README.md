@@ -218,7 +218,17 @@ The `docker-compose.yml` sets internal service URLs (e.g., `NEO4J_URI=neo4j://ne
 
 ### Tool Configuration
 
-CLI tools are defined in `configs/tools.json`. Each tool entry has:
+CLI tools are defined in a user-level config file so they never cause git conflicts on pull.
+
+**Config location by platform:**
+
+| Platform | Path |
+|----------|------|
+| Linux    | `~/.config/sea-qwens/tools.json` |
+| macOS    | `~/Library/Application Support/sea-qwens/tools.json` |
+| Windows  | `%APPDATA%\sea-qwens\tools.json` |
+
+Each tool entry has:
 
 - **`name`** — human-readable identifier (e.g., `qwen-coder`)
 - **`command`** — non-interactive CLI command (e.g., `qwen --non-interactive`)
@@ -231,10 +241,22 @@ The Kanban dispatcher selects the **least-used healthy tool** whose capabilities
 
 ```bash
 # View current tools
-cat configs/tools.json | python -m json.tool
+cat ~/.config/sea-qwens/tools.json | python -m json.tool  # Linux
 ```
 
-To add or modify tools, edit `configs/tools.json` and restart the Kanban service.
+To add or modify tools, edit the config file and restart the Kanban service.
+
+**Bootstrap:** On first run, the Librarian copies default configs from the repo's `configs/` directory into the user config directory. You can also run the setup script manually:
+
+```bash
+python -c "from shared.config import bootstrap_configs; bootstrap_configs()"
+```
+
+**Docker:** The librarian container mounts your user config directory as a volume. Override the default path with `SEA_QWENS_CONFIG_DIR`:
+
+```bash
+SEA_QWENS_CONFIG_DIR=/custom/path docker compose up -d librarian
+```
 
 ---
 
@@ -244,24 +266,33 @@ To add or modify tools, edit `configs/tools.json` and restart the Kanban service
 
 ```
 sea-qwens/
-├── configs/
-│   └── tools.json             # CLI tool definitions
+├── configs/                     # Default configs (bootstrapped to user dir on first run)
+│   └── tools.json               # CLI tool definitions (defaults)
 ├── docs/
-│   └── superpowers/           # Superpowers skill documentation
+│   └── superpowers/             # Superpowers skill documentation
 ├── scripts/
-│   └── start-sea-qwens.sh     # Orchestrated service startup
+│   └── start-sea-qwens.sh       # Orchestrated service startup
 ├── services/
-│   ├── atomizer/              # Task decomposition service
+│   ├── atomizer/                # Task decomposition service
 │   ├── kanban/                # Task dispatcher service
 │   ├── librarian/             # Knowledge/graph/vector service
 │   ├── manager/               # CLI interviewer
 │   ├── tester/                # Validation & merge service
 │   └── worker/                # Task execution service
 ├── shared/
+│   ├── config.py              # Platform-aware config path utilities
 │   └── models.py              # Shared Pydantic models
 ├── docker-compose.yml         # Multi-service orchestration
 └── .env.example               # Environment template
 ```
+
+**User config directory** (not tracked in git):
+
+| Platform | Path |
+|----------|------|
+| Linux    | `~/.config/sea-qwens/` |
+| macOS    | `~/Library/Application Support/sea-qwens/` |
+| Windows  | `%APPDATA%\sea-qwens\` |
 
 ### Run Tests
 
@@ -285,7 +316,7 @@ python -m pytest shared/test_models.py -v
 
 ### Add a New Tool
 
-1. Edit `configs/tools.json` and add a new entry to the `tools` array.
+1. Edit your user-level config (`~/.config/sea-qwens/tools.json` on Linux) and add a new entry to the array.
 2. Restart the Kanban service to pick up the changes:
 
 ```bash

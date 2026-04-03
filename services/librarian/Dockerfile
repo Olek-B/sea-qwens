@@ -15,7 +15,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY shared/ ./shared/
-COPY configs/ ./configs/
 COPY services/librarian/ ./services/librarian/
 
 # Set PYTHONPATH so imports resolve from project root
