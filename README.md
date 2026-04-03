@@ -105,6 +105,16 @@ curl http://localhost:8001/code/class/AuthService
 - `get_full_context(name)` - Complete function context
 - `get_class(name)` - Class definition + methods
 
+### Code Access for Manager and Atomizer
+
+The Manager and Atomizer services can query the code knowledge graph to understand existing project code before acting.
+
+**Manager** — During the interview, after you provide a project name, the Manager checks if the project already exists in the code database. If it does, it shows you what code is already there and which features exist.
+
+**Atomizer** — When decomposing a project spec, the Atomizer checks for existing code. Features that already exist generate "extend" tasks instead of "implement from scratch" tasks.
+
+Both services use the shared `CodeQueryTools` and `ProjectCodeContext` from `shared/code_query_tools.py`. The Worker also imports from this shared module (with backward-compatible re-export in `services/worker/mcp_tools.py`).
+
 ### Importing Code
 
 **Pre-import existing codebase:**
