@@ -1393,6 +1393,8 @@ git commit -m "feat: add preimport CLI for bulk codebase indexing"
 - Modify: `services/librarian/app.py` (add endpoint)
 - Modify: `services/tester/app.py` (call endpoint after merge)
 
+**Design note:** The Librarian container has NO filesystem access to the project. The Tester reads merged files from its worktree and sends file content in the request body.
+
 - [ ] **Step 1: Write failing tests for post-indexer endpoint**
 
 ```python
@@ -1406,28 +1408,30 @@ sys.path.insert(0, '/home/loki/ideas/sea-qwens')
 
 
 class TestPostIndexer:
-    
+
     @pytest.fixture
     def client(self):
         with patch('services.librarian.neo4j_store.Neo4jStore') as mock_neo4j, \
              patch('services.librarian.chroma_store.ChromaStore') as mock_chroma:
-            
+
             mock_neo4j.return_value = MagicMock()
             mock_chroma.return_value = MagicMock()
-            
+
             from services.librarian.app import app
             return TestClient(app)
-    
+
     def test_index_updated_endpoint(self, client):
         response = client.post("/index/updated", json={
-            "changed_files": ["services/librarian/app.py"]
+            "files": [
+                {"path": "services/librarian/app.py", "content": "from fastapi import FastAPI\napp = FastAPI()"}
+            ]
         })
         assert response.status_code == 200
         assert "indexed" in response.json()
-    
+
     def test_index_updated_empty_files(self, client):
         response = client.post("/index/updated", json={
-            "changed_files": []
+            "files": []
         })
         assert response.status_code == 200
 ```
@@ -1445,45 +1449,42 @@ Expected: FAIL
 ```python
 # services/librarian/post_indexer.py
 
-import os
-from pathlib import Path
 from shared.indexer import CodeIndexer
 from services.librarian.neo4j_store import Neo4jStore
 from services.librarian.chroma_store import ChromaStore
 
 
 class PostIndexer:
-    """Incrementally index changed files after a merge."""
-    
+    """Incrementally index changed files after a merge.
+
+    Receives file content in the request body — the Librarian container
+    never needs filesystem access to the project.
+    """
+
     def __init__(self, neo4j: Neo4jStore, chroma: ChromaStore):
         self.neo4j = neo4j
         self.chroma = chroma
         self.indexer = CodeIndexer()
-    
-    def index_files(self, changed_files: list[str], repo_root: str) -> dict:
-        """Index a list of changed files."""
+
+    def index_files(self, files: list[dict]) -> dict:
+        """Index a list of files, each with 'path', 'content', and 'language' keys."""
         results = []
-        
-        for rel_path in changed_files:
-            full_path = os.path.join(repo_root, rel_path)
-            
-            if not os.path.exists(full_path):
+
+        for file_info in files:
+            rel_path = file_info["path"]
+            content = file_info["content"]
+            language = file_info.get("language", "python")
+
+            if content is None:
                 # File was deleted
                 self.neo4j.delete_file(rel_path)
                 results.append({"file": rel_path, "action": "deleted"})
                 continue
-            
+
             try:
-                with open(full_path, "r", encoding="utf-8", errors="ignore") as f:
-                    content = f.read()
-                
-                ext = Path(rel_path).suffix
-                lang_map = {".py": "python", ".js": "javascript", ".ts": "typescript"}
-                language = lang_map.get(ext, "unknown")
-                
                 result = self.indexer.index_file(rel_path, content, language)
                 self.neo4j.upsert_index_result(result)
-                
+
                 # Update ChromaDB
                 for func in result.functions:
                     uid = f"{func.file_path}:{func.name}"
@@ -1493,7 +1494,7 @@ class PostIndexer:
                         body=func.body,
                         metadata={"name": func.name, "file": func.file_path}
                     )
-                
+
                 for cls in result.classes:
                     uid = f"{cls.file_path}:{cls.name}"
                     self.chroma.delete_by_id(uid)
@@ -1502,23 +1503,23 @@ class PostIndexer:
                         body=cls.body,
                         metadata={"name": cls.name, "file": cls.file_path}
                     )
-                
+
                 results.append({
                     "file": rel_path,
                     "action": "updated",
                     "functions": len(result.functions),
                     "classes": len(result.classes)
                 })
-                
+
             except Exception as e:
                 results.append({
                     "file": rel_path,
                     "action": "error",
                     "error": str(e)
                 })
-        
+
         return {
-            "total": len(changed_files),
+            "total": len(files),
             "results": results
         }
 ```
@@ -1529,48 +1530,69 @@ class PostIndexer:
 # services/librarian/app.py - ADD this endpoint
 
 from pydantic import BaseModel
+from typing import Optional
+
+class FileContent(BaseModel):
+    path: str
+    content: Optional[str] = None
+    language: str = "python"
+
 
 class IndexUpdatedRequest(BaseModel):
-    changed_files: list[str]
+    files: list[FileContent]
 
 
 @app.post("/index/updated")
 def index_updated(request: IndexUpdatedRequest):
-    """Index changed files after a merge."""
+    """Index changed files after a merge.
+
+    The Tester sends file content directly — the Librarian never reads the filesystem.
+    """
     from services.librarian.post_indexer import PostIndexer
-    import os
-    
-    repo_root = os.environ.get("REPO_ROOT", "/home/loki/ideas/sea-qwens")
-    
+
     indexer = PostIndexer(neo4j, chroma)
-    result = indexer.index_files(request.changed_files, repo_root)
-    
+    file_dicts = [f.model_dump() for f in request.files]
+    result = indexer.index_files(file_dicts)
+
     return {"indexed": result}
 ```
 
-- [ ] **Step 5: Modify Tester to call /index/updated after merge**
+- [ ] **Step 5: Modify Tester to read merged files and send content to Librarian**
 
 ```python
 # services/tester/app.py - MODIFY the validate endpoint's success branch
 
-# In the validate endpoint, after successful merge, add:
+# In the validate endpoint, after successful merge, replace the indexing call with:
 
     if result.passed:
-        # Merge to main
         success, error = merger.merge_task_branch(request.task_id)
         if success:
-            # Index the merged code
+            # Index the merged code — read files from worktree and send content
             try:
                 import requests
-                # Get list of changed files from the task branch
-                # For now, we'll re-index all files (can be optimized later)
+                import os
+                from pathlib import Path
+
+                worktree_path = merger.get_worktree_path(request.task_id)
+                files_to_index = []
+
+                # Collect all Python files from the worktree
+                for py_file in Path(worktree_path).rglob("*.py"):
+                    rel_path = str(py_file.relative_to(worktree_path))
+                    content = py_file.read_text(encoding="utf-8", errors="ignore")
+                    files_to_index.append({
+                        "path": rel_path,
+                        "content": content,
+                        "language": "python"
+                    })
+
                 requests.post(
                     f"{LIBRARIAN_URL}/index/updated",
-                    json={"changed_files": []}  # Empty = full reindex
+                    json={"files": files_to_index}
                 )
             except Exception as e:
                 logger.error(f"Failed to trigger indexing: {e}")
-            
+
             # Update task status to DONE
             ...
 ```
@@ -1587,7 +1609,7 @@ Expected: PASS (2 tests)
 
 ```bash
 git add services/librarian/post_indexer.py services/librarian/app.py services/tester/app.py services/librarian/tests/test_post_indexer.py
-git commit -m "feat: add post-execution indexer and wire to Tester"
+git commit -m "feat: add post-execution indexer (content-based, no filesystem access)"
 ```
 
 ---
@@ -1829,7 +1851,6 @@ git commit -m "feat: add MCP code query tools for Worker LLM"
 **Files:**
 - Modify: `services/librarian/requirements.txt`
 - Modify: `services/worker/requirements.txt`
-- Modify: `docker-compose.yml` (add REPO_ROOT env var)
 
 - [ ] **Step 1: Add tree-sitter dependencies**
 
@@ -1849,41 +1870,11 @@ click>=8.1.7
 requests>=2.31.0
 ```
 
-- [ ] **Step 3: Update docker-compose.yml for Librarian**
-
-```yaml
-# docker-compose.yml - MODIFY librarian service
-
-  librarian:
-    build:
-      context: .
-      dockerfile: services/librarian/Dockerfile
-    container_name: legion-librarian
-    ports:
-      - "8001:8001"
-    environment:
-      NEO4J_URI: bolt://neo4j:7687
-      NEO4J_USER: neo4j
-      NEO4J_PASSWORD: password
-      CHROMA_DB_HOST: chromadb
-      CHROMA_DB_PORT: 8000
-      REPO_ROOT: /app
-    depends_on:
-      neo4j:
-        condition: service_healthy
-      chromadb:
-        condition: service_healthy
-    networks:
-      - legion-network
-    volumes:
-      - .:/app
-```
-
-- [ ] **Step 4: Commit**
+- [ ] **Step 3: Commit**
 
 ```bash
-git add services/librarian/requirements.txt services/worker/requirements.txt docker-compose.yml
-git commit -m "chore: add tree-sitter deps and REPO_ROOT env var"
+git add services/librarian/requirements.txt services/worker/requirements.txt
+git commit -m "chore: add tree-sitter and requests dependencies"
 ```
 
 ---
