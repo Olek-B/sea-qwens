@@ -127,7 +127,7 @@ class TestTaskEndpoints:
             'status': 'PENDING',
             'dependencies': [],
             'contract': {},
-            'profile_id': None
+            'tool_id': None
         }
         mock_stores['neo4j'].create_dependency_relationship.return_value = True
 
@@ -149,7 +149,7 @@ class TestTaskEndpoints:
             'status': 'PENDING',
             'dependencies': ['task-001', 'task-002'],
             'contract': {},
-            'profile_id': None
+            'tool_id': None
         }
         mock_stores['neo4j'].create_dependency_relationship.return_value = True
 
@@ -165,8 +165,8 @@ class TestTaskEndpoints:
     def test_create_tasks_batch(self, client, mock_stores):
         """Test creating multiple tasks in batch"""
         mock_stores['neo4j'].create_task.side_effect = [
-            {'task_id': 'batch-001', 'title': 'Batch task 1', 'status': 'PENDING', 'dependencies': [], 'contract': {}, 'profile_id': None},
-            {'task_id': 'batch-002', 'title': 'Batch task 2', 'status': 'PENDING', 'dependencies': ['batch-001'], 'contract': {}, 'profile_id': None}
+            {'task_id': 'batch-001', 'title': 'Batch task 1', 'status': 'PENDING', 'dependencies': [], 'contract': {}, 'tool_id': None},
+            {'task_id': 'batch-002', 'title': 'Batch task 2', 'status': 'PENDING', 'dependencies': ['batch-001'], 'contract': {}, 'tool_id': None}
         ]
         mock_stores['neo4j'].create_dependency_relationship.return_value = True
 
@@ -180,42 +180,42 @@ class TestTaskEndpoints:
         assert len(data["tasks"]) == 2
 
 
-class TestProfileEndpoints:
-    """Tests for Profile rotation endpoints"""
+class TestToolEndpoints:
+    """Tests for Tool rotation endpoints"""
 
-    def test_get_least_used_profile(self, client, mock_stores):
-        """Test getting the least used healthy profile"""
-        mock_stores['neo4j'].get_least_used_profile.return_value = {
-            'name': 'qwen-agent-01',
+    def test_get_least_used_tool(self, client, mock_stores):
+        """Test getting the least used healthy tool"""
+        mock_stores['neo4j'].get_least_used_tool.return_value = {
+            'name': 'qwen-coder',
             'usage_count': 10
         }
-        
-        response = client.get("/profiles/least-used")
-        assert response.status_code == 200
-        assert response.json()["name"] == "qwen-agent-01"
 
-    def test_get_least_used_profile_not_found(self, client, mock_stores):
-        """Test 404 when no healthy profiles available"""
-        mock_stores['neo4j'].get_least_used_profile.return_value = None
-        
-        response = client.get("/profiles/least-used")
+        response = client.get("/tools/least-used")
+        assert response.status_code == 200
+        assert response.json()["name"] == "qwen-coder"
+
+    def test_get_least_used_tool_not_found(self, client, mock_stores):
+        """Test 404 when no healthy tools available"""
+        mock_stores['neo4j'].get_least_used_tool.return_value = None
+
+        response = client.get("/tools/least-used")
         assert response.status_code == 404
 
-    def test_increment_profile_usage(self, client, mock_stores):
-        """Test incrementing profile usage counters"""
-        mock_stores['neo4j'].increment_profile_usage.return_value = {
-            'name': 'test-profile',
+    def test_increment_tool_usage(self, client, mock_stores):
+        """Test incrementing tool usage counters"""
+        mock_stores['neo4j'].increment_tool_usage.return_value = {
+            'name': 'qwen-coder',
             'usage_count': 11
         }
-        
-        response = client.post("/profiles/test-profile/increment")
+
+        response = client.post("/tools/qwen-coder/increment")
         assert response.status_code == 200
 
-    def test_increment_profile_not_found(self, client, mock_stores):
-        """Test 404 when profile doesn't exist"""
-        mock_stores['neo4j'].increment_profile_usage.return_value = None
-        
-        response = client.post("/profiles/non-existent/increment")
+    def test_increment_tool_not_found(self, client, mock_stores):
+        """Test 404 when tool doesn't exist"""
+        mock_stores['neo4j'].increment_tool_usage.return_value = None
+
+        response = client.post("/tools/non-existent/increment")
         assert response.status_code == 404
 
 

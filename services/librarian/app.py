@@ -62,7 +62,7 @@ class TaskInput(BaseModel):
     status: str = "PENDING"
     dependencies: list[str] = Field(default_factory=list)
     contract: dict = Field(default_factory=dict)
-    profile_id: Optional[str] = None
+    tool_id: Optional[str] = None
 
 
 @app.post("/project-specs", status_code=201)
@@ -114,7 +114,7 @@ def create_task(task: TaskInput):
         "status": task.status,
         "dependencies": task.dependencies,
         "contract": task.contract,
-        "profile_id": task.profile_id
+        "tool_id": task.tool_id
     }
     created_task = neo4j.create_task(task_data)
     
@@ -138,7 +138,7 @@ def create_tasks_batch(tasks: list[TaskInput]):
             "status": task.status,
             "dependencies": task.dependencies,
             "contract": task.contract,
-            "profile_id": task.profile_id
+            "tool_id": task.tool_id
         }
         created_task = neo4j.create_task(task_data)
         created_tasks.append(created_task)
@@ -161,23 +161,23 @@ def ingest_document(data: IngestInput):
     return {"status": "ok", "uid": data.uid}
 
 
-@app.get("/profiles/least-used")
-def get_least_used_profile():
-    """Get the least used healthy profile"""
+@app.get("/tools/least-used")
+def get_least_used_tool():
+    """Get the least used healthy tool"""
     neo4j = get_neo4j_store()
-    result = neo4j.get_least_used_profile()
+    result = neo4j.get_least_used_tool()
     if not result:
-        raise HTTPException(status_code=404, detail="No healthy profiles available")
+        raise HTTPException(status_code=404, detail="No healthy tools available")
     return result
 
 
-@app.post("/profiles/{profile_name}/increment")
-def increment_profile_usage(profile_name: str):
-    """Increment profile usage counters"""
+@app.post("/tools/{tool_name}/increment")
+def increment_tool_usage(tool_name: str):
+    """Increment tool usage counters"""
     neo4j = get_neo4j_store()
-    result = neo4j.increment_profile_usage(profile_name)
+    result = neo4j.increment_tool_usage(tool_name)
     if not result:
-        raise HTTPException(status_code=404, detail="Profile not found")
+        raise HTTPException(status_code=404, detail="Tool not found")
     return result
 
 
