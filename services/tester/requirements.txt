@@ -1,0 +1,7 @@
+# services/tester/requirements.txt
+fastapi
+uvicorn
+pydantic
+requests
+pytest
+jsonschema
