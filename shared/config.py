@@ -85,7 +85,7 @@ def bootstrap_configs(repo_root: Path | None = None) -> dict[str, bool]:
             logger.info(f"Bootstrapped config: {dst}")
             results[src.name] = True
         elif src.is_dir():
-            shutil.copytree(src, dst)
+            shutil.copytree(src, dst, dirs_exist_ok=True)
             logger.info(f"Bootstrapped config directory: {dst}")
             results[src.name] = True
 
