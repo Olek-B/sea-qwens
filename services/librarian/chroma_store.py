@@ -43,3 +43,35 @@ class ChromaStore:
                 "metadata": results["metadatas"][0]
             }
         return None
+
+    def add_function_embedding(self, uid: str, body: str, metadata: dict):
+        """Embed a function definition with type metadata"""
+        self.collection.add(
+            documents=[body], ids=[uid],
+            metadatas=[{**metadata, "type": "function"}]
+        )
+
+    def add_class_embedding(self, uid: str, body: str, metadata: dict):
+        """Embed a class definition with type metadata"""
+        self.collection.add(
+            documents=[body], ids=[uid],
+            metadatas=[{**metadata, "type": "class"}]
+        )
+
+    def search_code(self, query: str, n_results: int = 10) -> list[dict]:
+        """Search for code by semantic query, returning structured results"""
+        results = self.collection.query(query_texts=[query], n_results=n_results)
+        items = []
+        if results["ids"] and results["ids"][0]:
+            for i, doc_id in enumerate(results["ids"][0]):
+                items.append({
+                    "id": doc_id,
+                    "document": results["documents"][0][i],
+                    "metadata": results["metadatas"][0][i],
+                    "distance": results["distances"][0][i] if results.get("distances") else None
+                })
+        return items
+
+    def delete_by_id(self, uid: str):
+        """Delete a document by its ID"""
+        self.collection.delete(ids=[uid])
