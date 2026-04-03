@@ -49,3 +49,32 @@ class Profile(BaseModel):
     capabilities: list[str] = Field(default_factory=lambda: ["coding", "testing", "refactoring"])
     health_status: ProfileHealth = ProfileHealth.HEALTHY
     consecutive_failures: int = 0
+
+
+class CodeFile(BaseModel):
+    path: str
+    language: str
+    content: str
+    last_updated: datetime = Field(default_factory=datetime.utcnow)
+
+
+class CodeFunction(BaseModel):
+    name: str
+    file_path: str
+    line_start: int
+    line_end: int
+    body: str
+    signature: str = ""
+    docstring: str = ""
+    is_method: bool = False
+    parent_class: Optional[str] = None
+
+
+class CodeClass(BaseModel):
+    name: str
+    file_path: str
+    line_start: int
+    line_end: int
+    body: str
+    docstring: str = ""
+    bases: list[str] = Field(default_factory=list)
