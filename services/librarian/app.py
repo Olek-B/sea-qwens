@@ -198,6 +198,12 @@ def ingest_document(data: IngestInput):
     return {"status": "ok", "uid": data.uid}
 
 
+@app.get("/health")
+def health_check():
+    """Health check endpoint."""
+    return {"status": "healthy", "service": "legion-librarian"}
+
+
 @app.get("/tools")
 def get_all_tools():
     """Get all tools."""

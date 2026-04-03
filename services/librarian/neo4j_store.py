@@ -109,6 +109,7 @@ class Neo4jStore:
                     name: $name,
                     command: $command,
                     usage_count: $usage_count,
+                    daily_limit: $daily_limit,
                     requests_today: $requests_today,
                     health_status: $health_status
                 })
