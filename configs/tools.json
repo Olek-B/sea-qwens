@@ -1,0 +1,22 @@
+[
+  {
+    "name": "qwen-code",
+    "command": "qwen --non-interactive",
+    "adapter": "qwen.sh",
+    "daily_limit": 1000,
+    "capabilities": ["coding", "testing", "debugging", "refactoring"],
+    "health_status": "HEALTHY",
+    "consecutive_failures": 0,
+    "requests_today": 0
+  },
+  {
+    "name": "qwen-coder",
+    "command": "qwen -m qwen-coder --non-interactive",
+    "adapter": "qwen-coder.sh",
+    "daily_limit": 500,
+    "capabilities": ["coding", "code-review"],
+    "health_status": "HEALTHY",
+    "consecutive_failures": 0,
+    "requests_today": 0
+  }
+]

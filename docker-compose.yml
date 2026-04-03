@@ -28,7 +28,7 @@ services:
     networks:
       - sea-qwens-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/localhost/8000"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -94,6 +94,7 @@ services:
       - "8003:8003"
     environment:
       - LIBRARIAN_URL=http://librarian:8001
+      - WORKER_URL=http://worker:8004
     depends_on:
       librarian:
         condition: service_started
@@ -114,6 +115,7 @@ services:
         condition: service_started
     volumes:
       - ./worktrees:/app/worktrees
+      - ${SEA_QWENS_CONFIG_DIR:-~/.config/sea-qwens}/adapters:/app/adapters:ro
     networks:
       - sea-qwens-network
 
