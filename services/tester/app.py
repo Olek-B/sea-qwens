@@ -33,7 +33,10 @@ _merger: Optional[GitMerger] = None
 # Service URLs (overridable for tests)
 _LIBRARIAN_URL = "http://localhost:8001"
 _WORKER_URL = "http://localhost:8004"
-_REPO_ROOT = "/home/loki/ideas/sea-qwens"
+_REPO_ROOT = subprocess.run(
+    ["git", "rev-parse", "--show-toplevel"],
+    capture_output=True, text=True, cwd=os.path.dirname(__file__)
+).stdout.strip() or os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 
 def get_validator() -> ContractValidator:

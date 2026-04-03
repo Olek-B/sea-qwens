@@ -2,7 +2,7 @@ import click
 import sys
 import requests
 import json
-sys.path.insert(0, '/home/loki/ideas/sea-qwens/worktrees/sea-qwens-implement')
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 from services.manager.interviewer import Interviewer
 
 
