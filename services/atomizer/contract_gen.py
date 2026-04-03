@@ -1,4 +1,4 @@
-"""Contract generator for Project Legion Atomizer service.
+"""Contract generator for Sea Qwens Atomizer service.
 
 Generates JSON Schema contracts for API endpoints, functions, and files.
 """

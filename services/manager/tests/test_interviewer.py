@@ -1,6 +1,7 @@
 import pytest
 import sys
-sys.path.insert(0, '/home/loki/ideas/sea-qwens-dev')
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..'))
 from services.manager.interviewer import Interviewer, InterviewQuestion
 
 

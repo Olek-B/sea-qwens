@@ -46,7 +46,7 @@ def import_file(filepath: str, root_path: str, neo4j, chroma) -> dict:
 @click.command()
 @click.argument("project_path", type=click.Path(exists=True))
 def preimport(project_path: str):
-    """Bulk import a codebase into the Legion knowledge graph."""
+    """Bulk import a codebase into the Sea Qwens knowledge graph."""
     project_path = os.path.abspath(project_path)
     click.echo(f"Scanning project: {project_path}")
     from services.librarian.neo4j_store import Neo4jStore

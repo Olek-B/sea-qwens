@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 #
-# start-legion.sh — Orchestrated startup for Project Legion
+# start-sea-qwens.sh — Orchestrated startup for Sea Qwens
 #
 # Starts services in dependency order:
 #   1. Infrastructure (Neo4j, ChromaDB)
 #   2. Librarian (knowledge service)
 #   3. Application services (atomizer, kanban, worker, tester, manager)
 #
-# Usage: ./scripts/start-legion.sh
+# Usage: ./scripts/start-sea-qwens.sh
 
 set -euo pipefail
 
@@ -95,7 +95,7 @@ start_application_services() {
 print_urls() {
     echo ""
     echo -e "${GREEN}═══════════════════════════════════════════════════════════${NC}"
-    echo -e "${GREEN}  Project Legion — Services Started${NC}"
+    echo -e "${GREEN}  Sea Qwens — Services Started${NC}"
     echo -e "${GREEN}═══════════════════════════════════════════════════════════${NC}"
     echo ""
     echo -e "  ${CYAN}Service${NC}          ${CYAN}URL${NC}"
@@ -123,7 +123,7 @@ print_urls() {
 # ── Main ─────────────────────────────────────────────────────────────────────
 main() {
     echo ""
-    info "Project Legion — Starting all services…"
+    info "Sea Qwens — Starting all services…"
     echo ""
 
     check_docker_compose
@@ -143,7 +143,7 @@ main() {
     # Phase 4: Summary
     print_urls
 
-    success "Legion is up and running!"
+    success "Sea Qwens is up and running!"
     echo ""
 }
 

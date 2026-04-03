@@ -6,7 +6,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Legion Kanban")
+app = FastAPI(title="Sea Qwens Kanban")
 
 dispatcher = Dispatcher()
 scheduler = BackgroundScheduler()

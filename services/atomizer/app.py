@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
 from services.atomizer.decomposer import Atomizer
 
-app = FastAPI(title="Legion Atomizer")
+app = FastAPI(title="Sea Qwens Atomizer")
 
 # Initialize Atomizer with Librarian URL
 LIBRARIAN_URL = os.getenv("LIBRARIAN_URL", "http://localhost:8001")

@@ -51,7 +51,7 @@ class TaskExecutor:
         try:
             env = os.environ.copy()
             if tool_id:
-                env["LEGION_TOOL_ID"] = tool_id
+                env["SEA_QWENS_TOOL_ID"] = tool_id
 
             cmd = [
                 *tool_command.split(),

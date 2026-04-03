@@ -7,11 +7,25 @@ from typing import Optional
 class WorktreeManager:
     """Manage git worktrees for isolated task execution"""
 
-    def __init__(self, root_dir: str = "/home/loki/ideas/sea-qwens"):
-        self.root_dir = root_dir
-        self._root_path = Path(root_dir)
+    def __init__(self, root_dir: Optional[str] = None):
+        self.root_dir = root_dir or self._find_repo_root()
+        self._root_path = Path(self.root_dir)
         self.worktrees_dir = self._root_path / "worktrees"
         self.worktrees_dir.mkdir(exist_ok=True)
+
+    @staticmethod
+    def _find_repo_root() -> str:
+        """Find the git repository root from the current working directory."""
+        result = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            text=True
+        )
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"Could not find git repo root: {result.stderr.strip()}"
+            )
+        return result.stdout.strip()
 
     def _get_default_branch(self) -> str:
         """Detect the default branch of the repo"""

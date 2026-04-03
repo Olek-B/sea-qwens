@@ -1,17 +1,17 @@
 services:
   neo4j:
     image: neo4j:5.15
-    container_name: legion-neo4j
+    container_name: sea-qwens-neo4j
     ports:
       - "7474:7474"  # Neo4j Browser
       - "7687:7687"  # Bolt protocol
     environment:
-      - NEO4J_AUTH=neo4j/legionpassword
+      - NEO4J_AUTH=neo4j/seaqwenspassword
       - NEO4J_PLUGINS=apoc
     volumes:
       - neo4j_data:/data
     networks:
-      - legion-network
+      - sea-qwens-network
     healthcheck:
       test: ["CMD", "wget", "-O", "-", "http://localhost:7474"]
       interval: 10s
@@ -20,13 +20,13 @@ services:
 
   chromadb:
     image: chromadb/chroma:0.6.3
-    container_name: legion-chromadb
+    container_name: sea-qwens-chromadb
     ports:
       - "8000:8000"
     volumes:
       - chroma_data:/chroma/chroma
     networks:
-      - legion-network
+      - sea-qwens-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
       interval: 10s
@@ -37,13 +37,13 @@ services:
     build:
       context: .
       dockerfile: services/librarian/Dockerfile
-    container_name: legion-librarian
+    container_name: sea-qwens-librarian
     ports:
       - "8001:8001"
     environment:
       - NEO4J_URI=neo4j://neo4j:7687
       - NEO4J_USERNAME=neo4j
-      - NEO4J_PASSWORD=legionpassword
+      - NEO4J_PASSWORD=seaqwenspassword
       - CHROMA_HOST=http://chromadb:8000
     depends_on:
       neo4j:
@@ -51,13 +51,13 @@ services:
       chromadb:
         condition: service_healthy
     networks:
-      - legion-network
+      - sea-qwens-network
 
   manager:
     build:
       context: .
       dockerfile: services/manager/Dockerfile
-    container_name: legion-manager
+    container_name: sea-qwens-manager
     ports:
       - "8006:8006"
     environment:
@@ -66,13 +66,13 @@ services:
       librarian:
         condition: service_started
     networks:
-      - legion-network
+      - sea-qwens-network
 
   atomizer:
     build:
       context: .
       dockerfile: services/atomizer/Dockerfile
-    container_name: legion-atomizer
+    container_name: sea-qwens-atomizer
     ports:
       - "8002:8002"
     environment:
@@ -81,13 +81,13 @@ services:
       librarian:
         condition: service_started
     networks:
-      - legion-network
+      - sea-qwens-network
 
   kanban:
     build:
       context: .
       dockerfile: services/kanban/Dockerfile
-    container_name: legion-kanban
+    container_name: sea-qwens-kanban
     ports:
       - "8003:8003"
     environment:
@@ -96,13 +96,13 @@ services:
       librarian:
         condition: service_started
     networks:
-      - legion-network
+      - sea-qwens-network
 
   worker:
     build:
       context: .
       dockerfile: services/worker/Dockerfile
-    container_name: legion-worker
+    container_name: sea-qwens-worker
     ports:
       - "8004:8004"
     environment:
@@ -113,13 +113,13 @@ services:
     volumes:
       - ./worktrees:/app/worktrees
     networks:
-      - legion-network
+      - sea-qwens-network
 
   tester:
     build:
       context: .
       dockerfile: services/tester/Dockerfile
-    container_name: legion-tester
+    container_name: sea-qwens-tester
     ports:
       - "8005:8005"
     environment:
@@ -130,10 +130,10 @@ services:
     volumes:
       - ./worktrees:/app/worktrees
     networks:
-      - legion-network
+      - sea-qwens-network
 
 networks:
-  legion-network:
+  sea-qwens-network:
     driver: bridge
 
 volumes:

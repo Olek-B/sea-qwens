@@ -1,5 +1,5 @@
 """
-FastAPI app for the Legion Tester service.
+FastAPI app for the Sea Qwens Tester service.
 
 Endpoints:
 - POST /validate       – validate task output, merge if passed, update Librarian
@@ -21,8 +21,8 @@ from services.tester.merger import GitMerger, MergeResult
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
-    title="Legion Tester",
-    description="Validation and merge service for Project Legion",
+    title="Sea Qwens Tester",
+    description="Validation and merge service for Sea Qwens",
     version="0.1.0",
 )
 
@@ -33,7 +33,10 @@ _merger: Optional[GitMerger] = None
 # Service URLs (overridable for tests)
 _LIBRARIAN_URL = "http://localhost:8001"
 _WORKER_URL = "http://localhost:8004"
-_REPO_ROOT = "/home/loki/ideas/sea-qwens"
+_REPO_ROOT = subprocess.run(
+    ["git", "rev-parse", "--show-toplevel"],
+    capture_output=True, text=True, cwd=os.path.dirname(__file__)
+).stdout.strip() or os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 
 def get_validator() -> ContractValidator:
@@ -194,7 +197,7 @@ async def health_check():
     """Health check endpoint."""
     return HealthResponse(
         status="healthy",
-        service="legion-tester",
+        service="sea-qwens-tester",
         timestamp=datetime.utcnow().isoformat(),
     )
 
