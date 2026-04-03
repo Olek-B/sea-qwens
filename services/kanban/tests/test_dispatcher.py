@@ -1,9 +1,10 @@
 # services/kanban/tests/test_dispatcher.py
 import pytest
 import sys
+import os
 from unittest.mock import MagicMock, patch
 
-sys.path.insert(0, '/home/loki/ideas/sea-qwens/worktrees/legion-implement')
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..'))
 from services.kanban.dispatcher import Dispatcher, DispatchResult
 
 

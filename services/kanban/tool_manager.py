@@ -1,5 +1,4 @@
 # services/kanban/tool_manager.py
-from datetime import datetime
 from typing import Optional
 import requests
 
