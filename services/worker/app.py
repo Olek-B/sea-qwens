@@ -13,8 +13,8 @@ from shared.models import Task
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
-    title="Legion Worker",
-    description="Worker executor service for Project Legion",
+    title="Sea Qwens Worker",
+    description="Worker executor service for Sea Qwens",
     version="0.1.0",
 )
 
@@ -114,7 +114,7 @@ async def health_check():
     """Health check endpoint."""
     return HealthResponse(
         status="healthy",
-        service="legion-worker",
+        service="sea-qwens-worker",
         timestamp=datetime.utcnow().isoformat(),
     )
 

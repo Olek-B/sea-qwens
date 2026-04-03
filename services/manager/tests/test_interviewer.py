@@ -1,6 +1,6 @@
 import pytest
 import sys
-sys.path.insert(0, '/home/loki/ideas/sea-qwens/worktrees/legion-implement')
+sys.path.insert(0, '/home/loki/ideas/sea-qwens/worktrees/sea-qwens-implement')
 from services.manager.interviewer import Interviewer, InterviewQuestion
 
 

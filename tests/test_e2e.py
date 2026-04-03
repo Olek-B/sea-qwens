@@ -1,5 +1,5 @@
 """
-End-to-End Integration Tests for Project Legion.
+End-to-End Integration Tests for Sea Qwens.
 
 These tests require all services running via docker-compose.
 Run with: pytest tests/test_e2e.py -m integration --tb=short

@@ -1,5 +1,5 @@
 """
-Root conftest.py for Project Legion.
+Root conftest.py for Sea Qwens.
 
 Registers custom pytest markers used across the test suite.
 """

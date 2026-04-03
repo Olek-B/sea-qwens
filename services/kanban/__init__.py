@@ -1,1 +1,1 @@
-# Kanban service for Project Legion
+# Kanban service for Sea Qwens

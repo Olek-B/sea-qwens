@@ -7,7 +7,7 @@ from shared.indexer import IndexResult, CallRelation
 
 
 class Neo4jStore:
-    """Neo4j graph database operations for Project Legion"""
+    """Neo4j graph database operations for Sea Qwens"""
 
     def __init__(self):
         self.driver = GraphDatabase.driver(

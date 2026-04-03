@@ -1,4 +1,4 @@
-# Project Legion
+# Sea Qwens
 
 > Autonomous multi-agent coding framework — decompose, assign, execute, validate, and merge code tasks without human intervention.
 
@@ -18,7 +18,7 @@
 
 ## Overview
 
-Project Legion orchestrates a fleet of AI coding agents (CLI tools) to autonomously implement software projects from a high-level specification. You describe **what** you want; Legion figures out **how** to build it.
+Sea Qwens orchestrates a fleet of AI coding agents (CLI tools) to autonomously implement software projects from a high-level specification. You describe **what** you want; Sea Qwens figures out **how** to build it.
 
 **Core workflow:**
 
@@ -131,10 +131,10 @@ python -m services.librarian.preimport /path/to/existing/project
 
 ```bash
 # Clone and enter the project
-cd worktrees/legion-implement
+cd worktrees/sea-qwens-implement
 
 # Start everything in dependency order (infra → librarian → app services)
-./scripts/start-legion.sh
+./scripts/start-sea-qwens.sh
 ```
 
 The script starts services in phases with health-check waits:
@@ -164,17 +164,17 @@ Answer the prompts to create a `ProjectSpec`, which is sent to the Librarian aut
 
 | Service    | Port | Container           | Description                                        |
 |------------|------|---------------------|----------------------------------------------------|
-| Neo4j      | 7474 | `legion-neo4j`      | Graph database — tasks, dependencies, tools        |
-| Neo4j Bolt | 7687 | `legion-neo4j`      | Bolt protocol for graph queries                    |
-| ChromaDB   | 8000 | `legion-chromadb`   | Vector store — document ingestion & retrieval      |
-| Librarian  | 8001 | `legion-librarian`  | Knowledge service — specs, tasks, tools, docs      |
-| Atomizer   | 8002 | `legion-atomizer`   | Task decomposition — spec → atomic tasks + contracts |
-| Kanban     | 8003 | `legion-kanban`     | Task dispatcher — polls & assigns to tools          |
-| Worker     | 8004 | `legion-worker`     | Task executor — runs Qwen Code in git worktrees    |
-| Tester     | 8005 | `legion-tester`     | Validator & merger — contract checks, branch merge |
-| Manager    | 8006 | `legion-manager`    | CLI interviewer — interactive spec creation        |
+| Neo4j      | 7474 | `sea-qwens-neo4j`     | Graph database — tasks, dependencies, tools        |
+| Neo4j Bolt | 7687 | `sea-qwens-neo4j`     | Bolt protocol for graph queries                    |
+| ChromaDB   | 8000 | `sea-qwens-chromadb`  | Vector store — document ingestion & retrieval      |
+| Librarian  | 8001 | `sea-qwens-librarian` | Knowledge service — specs, tasks, tools, docs      |
+| Atomizer   | 8002 | `sea-qwens-atomizer`  | Task decomposition — spec → atomic tasks + contracts |
+| Kanban     | 8003 | `sea-qwens-kanban`    | Task dispatcher — polls & assigns to tools          |
+| Worker     | 8004 | `sea-qwens-worker`    | Task executor — runs Qwen Code in git worktrees    |
+| Tester     | 8005 | `sea-qwens-tester`    | Validator & merger — contract checks, branch merge |
+| Manager    | 8006 | `sea-qwens-manager`   | CLI interviewer — interactive spec creation        |
 
-All services communicate over the `legion-network` Docker bridge network.
+All services communicate over the `sea-qwens-network` Docker bridge network.
 
 ---
 
@@ -233,13 +233,13 @@ To add or modify tools, edit `configs/tools.json` and restart the Kanban service
 ### Project Structure
 
 ```
-legion-implement/
+sea-qwens/
 ├── configs/
 │   └── tools.json             # CLI tool definitions
 ├── docs/
 │   └── superpowers/           # Superpowers skill documentation
 ├── scripts/
-│   └── start-legion.sh        # Orchestrated service startup
+│   └── start-sea-qwens.sh     # Orchestrated service startup
 ├── services/
 │   ├── atomizer/              # Task decomposition service
 │   ├── kanban/                # Task dispatcher service
@@ -425,7 +425,7 @@ curl http://localhost:8000/api/v1/heartbeat
 ```bash
 # If 'docker compose' fails, try 'docker-compose'
 # The start script auto-detects which is available
-./scripts/start-legion.sh
+./scripts/start-sea-qwens.sh
 ```
 
 ### Reset Everything
@@ -444,7 +444,7 @@ docker compose -f docker-compose.yml up --build -d
 
 MIT
 
-Copyright (c) 2026 Project Legion Contributors
+Copyright (c) 2026 Sea Qwens Contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

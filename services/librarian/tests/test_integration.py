@@ -1,5 +1,5 @@
 """
-Integration tests for Project Legion Librarian service.
+Integration tests for Sea Qwens Librarian service.
 
 These tests require running services:
 - Neo4j (port 7687)

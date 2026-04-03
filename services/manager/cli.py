@@ -2,7 +2,7 @@ import click
 import sys
 import requests
 import json
-sys.path.insert(0, '/home/loki/ideas/sea-qwens/worktrees/legion-implement')
+sys.path.insert(0, '/home/loki/ideas/sea-qwens/worktrees/sea-qwens-implement')
 from services.manager.interviewer import Interviewer
 
 
@@ -11,7 +11,7 @@ LIBRARIAN_URL = "http://localhost:8001"
 
 @click.group()
 def cli():
-    """Legion Manager - Interview users and create ProjectSpecs"""
+    """Sea Qwens Manager - Interview users and create ProjectSpecs"""
     pass
 
 
@@ -19,7 +19,7 @@ def cli():
 def interview():
     """Conduct a project requirements interview"""
     click.echo("=" * 60)
-    click.echo("LEGION MANAGER - Project Requirements Interview")
+    click.echo("SEA QWENS MANAGER - Project Requirements Interview")
     click.echo("=" * 60)
     click.echo()
 

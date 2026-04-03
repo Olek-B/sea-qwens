@@ -47,7 +47,7 @@ def _seed_tools():
             logger.info(f"Seeded tool: {tool_data['name']}")
 
 
-app = FastAPI(title="Legion Librarian", lifespan=lifespan)
+app = FastAPI(title="Sea Qwens Librarian", lifespan=lifespan)
 
 # Store instances - initialized lazily for testability
 _neo4j_store = None
@@ -201,7 +201,7 @@ def ingest_document(data: IngestInput):
 @app.get("/health")
 def health_check():
     """Health check endpoint."""
-    return {"status": "healthy", "service": "legion-librarian"}
+    return {"status": "healthy", "service": "sea-qwens-librarian"}
 
 
 @app.get("/tools")

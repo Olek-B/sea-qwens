@@ -1,5 +1,5 @@
 """
-Contract Validator for Project Legion Tester Service.
+Contract Validator for Sea Qwens Tester Service.
 
 Validates worker output against contracts through:
 1. JSON Schema contract validation
