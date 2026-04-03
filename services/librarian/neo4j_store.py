@@ -61,7 +61,7 @@ class Neo4jStore:
                     status: $status,
                     dependencies: $dependencies,
                     contract: $contract,
-                    profile_id: $profile_id
+                    tool_id: $tool_id
                 })
                 RETURN t
                 """,
@@ -100,57 +100,58 @@ class Neo4jStore:
                 return dict(record["t"])
             return None
 
-    def create_profile(self, profile_data: dict) -> dict:
-        """Create a new Profile node in Neo4j"""
+    def create_tool(self, tool_data: dict) -> dict:
+        """Create a new Tool node in Neo4j"""
         with self.driver.session() as session:
             result = session.run(
                 """
-                CREATE (p:Profile {
+                CREATE (t:Tool {
                     name: $name,
+                    command: $command,
                     usage_count: $usage_count,
                     requests_today: $requests_today,
                     health_status: $health_status
                 })
-                RETURN p
+                RETURN t
                 """,
-                **profile_data
+                **tool_data
             )
             record = result.single()
-            return dict(record["p"])
+            return dict(record["t"])
 
-    def get_least_used_profile(self) -> Optional[dict]:
-        """Get profile with lowest usage_count among healthy profiles"""
+    def get_least_used_tool(self) -> Optional[dict]:
+        """Get tool with lowest usage_count among healthy tools"""
         with self.driver.session() as session:
             result = session.run(
                 """
-                MATCH (p:Profile {health_status: 'HEALTHY'})
-                WHERE p.requests_today < p.daily_limit
-                RETURN p
-                ORDER BY p.usage_count ASC
+                MATCH (t:Tool {health_status: 'HEALTHY'})
+                WHERE t.requests_today < t.daily_limit
+                RETURN t
+                ORDER BY t.usage_count ASC
                 LIMIT 1
                 """
             )
             record = result.single()
             if record:
-                return dict(record["p"])
+                return dict(record["t"])
             return None
 
-    def increment_profile_usage(self, profile_name: str) -> Optional[dict]:
-        """Increment profile usage counters"""
+    def increment_tool_usage(self, tool_name: str) -> Optional[dict]:
+        """Increment tool usage counters"""
         with self.driver.session() as session:
             result = session.run(
                 """
-                MATCH (p:Profile {name: $name})
-                SET p.usage_count = p.usage_count + 1
-                SET p.requests_today = p.requests_today + 1
-                SET p.last_used = datetime()
-                RETURN p
+                MATCH (t:Tool {name: $name})
+                SET t.usage_count = t.usage_count + 1
+                SET t.requests_today = t.requests_today + 1
+                SET t.last_used = datetime()
+                RETURN t
                 """,
-                name=profile_name
+                name=tool_name
             )
             record = result.single()
             if record:
-                return dict(record["p"])
+                return dict(record["t"])
             return None
 
     def create_dependency_relationship(self, from_task_id: str, to_task_id: str) -> bool:
