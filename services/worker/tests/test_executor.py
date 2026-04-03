@@ -1,9 +1,5 @@
 # services/worker/tests/test_executor.py
 import pytest
-import sys
-import os
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..'))
 
 from services.worker.executor import ExecutionResult, TaskExecutor
 from shared.models import Task

@@ -1,4 +1,5 @@
 # services/worker/executor.py
+import logging
 import subprocess
 import os
 import json
@@ -7,6 +8,8 @@ from typing import Optional
 from dataclasses import dataclass, field
 
 from shared.models import Task
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -69,19 +72,25 @@ class TaskExecutor:
 
         prompt = self._build_prompt(task.title, task.contract)
 
+        cmd = None
         try:
             env = os.environ.copy()
             if tool_id:
                 env["SEA_QWENS_TOOL_ID"] = tool_id
 
             # Try adapter execution first, fall back to raw command
-            adapter_path = self._resolve_adapter(adapter or "", tool_id or "")
+            adapter_path = (
+                self._resolve_adapter(adapter or "", tool_id or "")
+                if (adapter or tool_id)
+                else None
+            )
             if adapter_path:
+                logger.info("Using adapter %s for task %s", adapter_path, task.task_id)
                 cmd = ["bash", adapter_path, "--prompt", prompt, "--cwd", str(wt_path)]
                 if tool_id:
                     cmd.extend(["--tool_id", tool_id])
             else:
-                # Fallback: raw command execution (backward compatible)
+                logger.info("No adapter found for task %s, falling back to raw command", task.task_id)
                 cmd = [
                     *tool_command.split(),
                     "--prompt", prompt,
@@ -118,10 +127,11 @@ class TaskExecutor:
                 error="Task execution timed out (600s)",
             )
         except FileNotFoundError:
+            cmd_name = cmd[0] if cmd else "unknown"
             return ExecutionResult(
                 success=False,
                 task_id=task.task_id,
-                error=f"Command not found: {cmd[0]}",
+                error=f"Command not found: {cmd_name}",
             )
         except Exception as e:
             return ExecutionResult(

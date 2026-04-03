@@ -1,7 +1,7 @@
 # services/worker/app.py
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks
@@ -107,7 +107,7 @@ async def get_execution_status(task_id: str):
         test_passed=result.test_passed,
         error=result.error,
         rate_limited=result.rate_limited,
-        completed_at=datetime.utcnow().isoformat() if result.success or result.error else None,
+        completed_at=datetime.now(timezone.utc).isoformat() if result.success or result.error else None,
     )
 
 
@@ -117,7 +117,7 @@ async def health_check():
     return HealthResponse(
         status="healthy",
         service="sea-qwens-worker",
-        timestamp=datetime.utcnow().isoformat(),
+        timestamp=datetime.now(timezone.utc).isoformat(),
     )
 
 
