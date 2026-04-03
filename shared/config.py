@@ -77,14 +77,17 @@ def bootstrap_configs(repo_root: Path | None = None) -> dict[str, bool]:
         return results
 
     for src in repo_configs.iterdir():
-        if src.is_file():
-            dst = user_config_dir / src.name
-            if dst.exists():
-                results[src.name] = False
-            else:
-                shutil.copy2(src, dst)
-                logger.info(f"Bootstrapped config: {dst}")
-                results[src.name] = True
+        dst = user_config_dir / src.name
+        if dst.exists():
+            results[src.name] = False
+        elif src.is_file():
+            shutil.copy2(src, dst)
+            logger.info(f"Bootstrapped config: {dst}")
+            results[src.name] = True
+        elif src.is_dir():
+            shutil.copytree(src, dst)
+            logger.info(f"Bootstrapped config directory: {dst}")
+            results[src.name] = True
 
     return results
 
