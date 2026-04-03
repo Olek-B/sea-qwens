@@ -19,7 +19,7 @@ class Neo4jStore:
         """Close the Neo4j driver connection"""
         self.driver.close()
 
-    def create_project_spec(self, name: str, tech_stack: list[str], features: list[str]) -> dict:
+    def create_project_spec(self, name: str, tech_stack: list[str], features: list[str], parent_project: Optional[str] = None, constraints: Optional[list[str]] = None) -> dict:
         """Create a new ProjectSpec node in Neo4j"""
         spec_id = str(uuid.uuid4())
         with self.driver.session() as session:
@@ -29,11 +29,15 @@ class Neo4jStore:
                     id: $id,
                     name: $name,
                     tech_stack: $tech_stack,
-                    features: $features
+                    features: $features,
+                    parent_project: $parent_project,
+                    constraints: $constraints,
+                    created_at: datetime()
                 })
                 RETURN p
                 """,
-                id=spec_id, name=name, tech_stack=tech_stack, features=features
+                id=spec_id, name=name, tech_stack=tech_stack, features=features,
+                parent_project=parent_project, constraints=constraints or []
             )
             record = result.single()
             return dict(record["p"])
@@ -49,6 +53,12 @@ class Neo4jStore:
             if record:
                 return dict(record["p"])
             return None
+
+    def list_all_project_specs(self) -> list[dict]:
+        """Retrieve all ProjectSpec nodes from Neo4j."""
+        with self.driver.session() as session:
+            result = session.run("MATCH (p:ProjectSpec) RETURN p ORDER BY p.created_at DESC")
+            return [dict(record["p"]) for record in result]
 
     def create_task(self, task_data: dict) -> dict:
         """Create a new Task node in Neo4j"""

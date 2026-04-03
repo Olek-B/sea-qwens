@@ -78,9 +78,33 @@ class TestProjectSpecEndpoints:
     def test_get_project_spec_not_found(self, client, mock_stores):
         """Test 404 when retrieving non-existent project spec"""
         mock_stores['neo4j'].get_project_spec.return_value = None
-        
+
         response = client.get("/project-specs/non-existent-id")
         assert response.status_code == 404
+
+    def test_list_all_project_specs(self, client, mock_stores):
+        """Test listing all project specs"""
+        mock_stores['neo4j'].list_all_project_specs.return_value = [
+            {'id': 'spec-1', 'name': 'MyApp', 'tech_stack': ['FastAPI'], 'features': ['auth']},
+            {'id': 'spec-2', 'name': 'OtherApp', 'tech_stack': ['Django'], 'features': ['admin']},
+        ]
+
+        response = client.get("/projects")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 2
+        assert data[0]["name"] == "MyApp"
+        assert data[1]["name"] == "OtherApp"
+        mock_stores['neo4j'].list_all_project_specs.assert_called_once()
+
+    def test_list_all_project_specs_empty(self, client, mock_stores):
+        """Test listing when no projects exist"""
+        mock_stores['neo4j'].list_all_project_specs.return_value = []
+
+        response = client.get("/projects")
+        assert response.status_code == 200
+        assert response.json() == []
+        mock_stores['neo4j'].list_all_project_specs.assert_called_once()
 
 
 class TestTaskEndpoints:

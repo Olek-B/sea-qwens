@@ -11,6 +11,25 @@ def test_project_spec_creation():
     assert spec.name == "Test Project"
     assert len(spec.tech_stack) == 2
 
+def test_project_spec_has_parent_project_field():
+    """ProjectSpec supports a parent_project reference."""
+    spec = ProjectSpec(
+        name="myapp-add-auth",
+        tech_stack=["FastAPI", "React"],
+        features=["add user authentication"],
+        parent_project="myapp"
+    )
+    assert spec.parent_project == "myapp"
+
+def test_project_spec_parent_project_defaults_to_none():
+    """parent_project is optional and defaults to None."""
+    spec = ProjectSpec(
+        name="myapp",
+        tech_stack=["FastAPI"],
+        features=["api"]
+    )
+    assert spec.parent_project is None
+
 def test_task_creation():
     task = Task(
         task_id="task-001",

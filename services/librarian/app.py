@@ -77,6 +77,8 @@ class ProjectSpecInput(BaseModel):
     name: str
     tech_stack: list[str]
     features: list[str]
+    parent_project: Optional[str] = None
+    constraints: list[str] = Field(default_factory=list)
 
 
 class TaskUpdateInput(BaseModel):
@@ -102,6 +104,13 @@ class TaskInput(BaseModel):
     tool_id: Optional[str] = None
 
 
+@app.get("/projects")
+def list_projects():
+    """List all existing project specs."""
+    neo4j = get_neo4j_store()
+    return neo4j.list_all_project_specs()
+
+
 @app.post("/project-specs", status_code=201)
 def create_project_spec(spec: ProjectSpecInput):
     """Create a new ProjectSpec"""
@@ -109,7 +118,9 @@ def create_project_spec(spec: ProjectSpecInput):
     result = neo4j.create_project_spec(
         name=spec.name,
         tech_stack=spec.tech_stack,
-        features=spec.features
+        features=spec.features,
+        parent_project=spec.parent_project,
+        constraints=spec.constraints,
     )
     return result
 

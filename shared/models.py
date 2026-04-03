@@ -26,6 +26,8 @@ class ProjectSpec(BaseModel):
     features: list[str]
     id: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    parent_project: Optional[str] = None
+    constraints: list[str] = Field(default_factory=list)
 
 
 class Task(BaseModel):
