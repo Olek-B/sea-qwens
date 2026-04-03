@@ -138,43 +138,43 @@ class TestTaskLifecycleIntegration:
 
 
 @pytest.mark.integration
-class TestProfileRotationIntegration:
-    """Integration tests for profile rotation"""
+class TestToolRotationIntegration:
+    """Integration tests for tool rotation"""
 
-    def test_get_least_used_profile(self):
-        """Test getting the least used healthy profile"""
-        response = requests.get(f"{LIBRARIAN_BASE_URL}/profiles/least-used")
+    def test_get_least_used_tool(self):
+        """Test getting the least used healthy tool"""
+        response = requests.get(f"{LIBRARIAN_BASE_URL}/tools/least-used")
 
-        # If profiles exist, should return 200
+        # If tools exist, should return 200
         if response.status_code == 200:
-            profile = response.json()
-            assert "name" in profile
-            assert "usage_count" in profile
+            tool = response.json()
+            assert "name" in tool
+            assert "usage_count" in tool
         else:
-            # 404 is acceptable if no healthy profiles exist
+            # 404 is acceptable if no healthy tools exist
             assert response.status_code == 404
 
-    def test_profile_usage_increment(self):
-        """Test incrementing profile usage counters"""
-        # First, try to get a profile
-        get_response = requests.get(f"{LIBRARIAN_BASE_URL}/profiles/least-used")
+    def test_tool_usage_increment(self):
+        """Test incrementing tool usage counters"""
+        # First, try to get a tool
+        get_response = requests.get(f"{LIBRARIAN_BASE_URL}/tools/least-used")
 
         if get_response.status_code == 200:
-            profile_name = get_response.json()["name"]
+            tool_name = get_response.json()["name"]
 
             # Increment usage
             increment_response = requests.post(
-                f"{LIBRARIAN_BASE_URL}/profiles/{profile_name}/increment"
+                f"{LIBRARIAN_BASE_URL}/tools/{tool_name}/increment"
             )
             assert increment_response.status_code == 200
-            updated_profile = increment_response.json()
-            assert updated_profile["name"] == profile_name
-            assert "usage_count" in updated_profile
+            updated_tool = increment_response.json()
+            assert updated_tool["name"] == tool_name
+            assert "usage_count" in updated_tool
 
-    def test_increment_nonexistent_profile(self):
-        """Test 404 when incrementing non-existent profile"""
+    def test_increment_nonexistent_tool(self):
+        """Test 404 when incrementing non-existent tool"""
         response = requests.post(
-            f"{LIBRARIAN_BASE_URL}/profiles/non-existent-profile/increment"
+            f"{LIBRARIAN_BASE_URL}/tools/non-existent-tool/increment"
         )
         assert response.status_code == 404
 
@@ -231,7 +231,7 @@ class TestEndToEndIntegration:
     """End-to-end integration tests combining multiple flows"""
 
     def test_full_workflow(self):
-        """Test complete workflow: spec → task → profile → ingest"""
+        """Test complete workflow: spec → task → tool → ingest"""
         timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
 
         # Step 1: Create a project spec
@@ -248,14 +248,14 @@ class TestEndToEndIntegration:
         get_response = requests.get(f"{LIBRARIAN_BASE_URL}/project-specs/{spec_id}")
         assert get_response.status_code == 200
 
-        # Step 3: Get a profile for task execution
-        profile_response = requests.get(f"{LIBRARIAN_BASE_URL}/profiles/least-used")
-        if profile_response.status_code == 200:
-            profile_name = profile_response.json()["name"]
+        # Step 3: Get a tool for task execution
+        tool_response = requests.get(f"{LIBRARIAN_BASE_URL}/tools/least-used")
+        if tool_response.status_code == 200:
+            tool_name = tool_response.json()["name"]
 
-            # Step 4: Increment profile usage
+            # Step 4: Increment tool usage
             increment_response = requests.post(
-                f"{LIBRARIAN_BASE_URL}/profiles/{profile_name}/increment"
+                f"{LIBRARIAN_BASE_URL}/tools/{tool_name}/increment"
             )
             assert increment_response.status_code == 200
 
