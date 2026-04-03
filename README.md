@@ -69,6 +69,53 @@ Project Legion orchestrates a fleet of AI coding agents (Qwen profiles) to auton
 
 ---
 
+## Code Knowledge Graph
+
+The Librarian stores the entire codebase as a knowledge graph in Neo4j + ChromaDB. Agents query this graph instead of reading files directly.
+
+### Graph Structure
+
+```
+Project → Module → File → Class → Function
+```
+
+With relationships: `CALLS`, `IMPORTS`, `INHERITS`, `INSTANTIATES`, `USES`.
+
+### Querying Code
+
+**HTTP API:**
+```bash
+# Search for authentication-related code
+curl "http://localhost:8001/code/search?q=authentication&type=function"
+
+# Get function details
+curl http://localhost:8001/code/function/login
+
+# Get full call context
+curl http://localhost:8001/code/function/login/full-context
+
+# Get class and methods
+curl http://localhost:8001/code/class/AuthService
+```
+
+**MCP Tools (for Worker LLM):**
+- `search_code(query)` - Semantic search
+- `get_function(name)` - Get function details
+- `get_callers(name)` / `get_callees(name)` - Call chain analysis
+- `get_full_context(name)` - Complete function context
+- `get_class(name)` - Class definition + methods
+
+### Importing Code
+
+**Pre-import existing codebase:**
+```bash
+python -m services.librarian.preimport /path/to/existing/project
+```
+
+**Post-execution indexing** happens automatically when the Tester merges a task.
+
+---
+
 ## Quick Start
 
 ### Prerequisites
