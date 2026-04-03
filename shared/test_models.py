@@ -1,4 +1,6 @@
-from shared.models import ProjectSpec, TaskStatus, Task, Profile
+# shared/test_models.py
+
+from shared.models import ProjectSpec, TaskStatus, Task, Tool, ToolHealth
 
 def test_project_spec_creation():
     spec = ProjectSpec(
@@ -16,10 +18,25 @@ def test_task_creation():
         status=TaskStatus.PENDING,
         dependencies=[],
         contract={"type": "object"},
-        profile_id="qwen-agent-01"
+        tool_id="qwen-coder"
     )
     assert task.task_id == "task-001"
     assert task.status == TaskStatus.PENDING
+
+def test_tool_creation():
+    tool = Tool(
+        name="qwen-coder",
+        command="qwen --non-interactive",
+        usage_count=0,
+        daily_limit=1000,
+        requests_today=0,
+        capabilities=["coding", "testing", "refactoring"],
+        health_status=ToolHealth.HEALTHY,
+        consecutive_failures=0
+    )
+    assert tool.name == "qwen-coder"
+    assert tool.command == "qwen --non-interactive"
+    assert tool.health_status == ToolHealth.HEALTHY
 
 
 from shared.models import CodeFile, CodeFunction, CodeClass

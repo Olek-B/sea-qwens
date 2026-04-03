@@ -1,3 +1,5 @@
+# shared/models.py
+
 from pydantic import BaseModel, Field
 from enum import Enum
 from datetime import datetime
@@ -12,7 +14,7 @@ class TaskStatus(str, Enum):
     MANUAL_REVIEW = "MANUAL_REVIEW"
 
 
-class ProfileHealth(str, Enum):
+class ToolHealth(str, Enum):
     HEALTHY = "HEALTHY"
     RATE_LIMITED = "RATE_LIMITED"
     ERROR = "ERROR"
@@ -32,22 +34,23 @@ class Task(BaseModel):
     status: TaskStatus = TaskStatus.PENDING
     dependencies: list[str] = Field(default_factory=list)
     contract: dict = Field(default_factory=dict)
-    profile_id: Optional[str] = None
+    tool_id: Optional[str] = None
     worktree_path: Optional[str] = None
     test_spec: Optional[dict] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
-class Profile(BaseModel):
+class Tool(BaseModel):
     name: str
+    command: str = "qwen --non-interactive"
     usage_count: int = 0
     last_used: Optional[datetime] = None
     daily_limit: int = 1000
     requests_today: int = 0
     reset_time: datetime = Field(default_factory=lambda: datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0))
     capabilities: list[str] = Field(default_factory=lambda: ["coding", "testing", "refactoring"])
-    health_status: ProfileHealth = ProfileHealth.HEALTHY
+    health_status: ToolHealth = ToolHealth.HEALTHY
     consecutive_failures: int = 0
 
 
