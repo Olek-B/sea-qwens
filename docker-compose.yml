@@ -55,6 +55,85 @@ services:
     networks:
       - legion-network
 
+  manager:
+    build:
+      context: .
+      dockerfile: services/manager/Dockerfile
+    container_name: legion-manager
+    ports:
+      - "8006:8006"
+    environment:
+      - LIBRARIAN_URL=http://librarian:8001
+    depends_on:
+      librarian:
+        condition: service_started
+    networks:
+      - legion-network
+
+  atomizer:
+    build:
+      context: .
+      dockerfile: services/atomizer/Dockerfile
+    container_name: legion-atomizer
+    ports:
+      - "8002:8002"
+    environment:
+      - LIBRARIAN_URL=http://librarian:8001
+    depends_on:
+      librarian:
+        condition: service_started
+    networks:
+      - legion-network
+
+  kanban:
+    build:
+      context: .
+      dockerfile: services/kanban/Dockerfile
+    container_name: legion-kanban
+    ports:
+      - "8003:8003"
+    environment:
+      - LIBRARIAN_URL=http://librarian:8001
+    depends_on:
+      librarian:
+        condition: service_started
+    networks:
+      - legion-network
+
+  worker:
+    build:
+      context: .
+      dockerfile: services/worker/Dockerfile
+    container_name: legion-worker
+    ports:
+      - "8004:8004"
+    environment:
+      - KANBAN_URL=http://kanban:8003
+    depends_on:
+      kanban:
+        condition: service_started
+    volumes:
+      - ./worktrees:/app/worktrees
+    networks:
+      - legion-network
+
+  tester:
+    build:
+      context: .
+      dockerfile: services/tester/Dockerfile
+    container_name: legion-tester
+    ports:
+      - "8005:8005"
+    environment:
+      - WORKER_URL=http://worker:8004
+    depends_on:
+      worker:
+        condition: service_started
+    volumes:
+      - ./worktrees:/app/worktrees
+    networks:
+      - legion-network
+
 networks:
   legion-network:
     driver: bridge
