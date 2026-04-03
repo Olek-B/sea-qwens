@@ -159,6 +159,22 @@ The script starts services in phases with health-check waits:
 docker compose -f docker-compose.yml down
 ```
 
+### Update All Services
+
+When you pull changes or modify source code, rebuild and restart all containers:
+
+```bash
+# Rebuild images, recreate containers, and restart everything
+./scripts/update-sea-qwens.sh
+```
+
+This script handles the full update lifecycle:
+1. Stops all running containers
+2. Pulls latest base images (Neo4j, ChromaDB)
+3. Rebuilds all service images from source
+4. Starts services in dependency order with health-check waits
+5. Verifies all services are running
+
 ### Create Your First Project
 
 ```bash
@@ -185,6 +201,8 @@ Answer the prompts to create a `ProjectSpec`, which is sent to the Librarian aut
 | Manager    | 8006 | `sea-qwens-manager`   | CLI interviewer — interactive spec creation        |
 
 All services communicate over the `sea-qwens-network` Docker bridge network.
+
+**Updating services:** After pulling changes or modifying code, run `./scripts/update-sea-qwens.sh` to rebuild and restart all containers automatically.
 
 ---
 
@@ -271,7 +289,8 @@ sea-qwens/
 ├── docs/
 │   └── superpowers/             # Superpowers skill documentation
 ├── scripts/
-│   └── start-sea-qwens.sh       # Orchestrated service startup
+│   ├── start-sea-qwens.sh       # Orchestrated service startup
+│   └── update-sea-qwens.sh      # Rebuild and update all services
 ├── services/
 │   ├── atomizer/                # Task decomposition service
 │   ├── kanban/                # Task dispatcher service
@@ -477,6 +496,9 @@ docker compose -f docker-compose.yml down -v
 
 # Rebuild and restart
 docker compose -f docker-compose.yml up --build -d
+
+# Or use the update script (recommended)
+./scripts/update-sea-qwens.sh
 ```
 
 ---
