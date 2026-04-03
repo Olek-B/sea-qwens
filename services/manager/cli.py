@@ -2,7 +2,12 @@ import click
 import sys
 import requests
 import json
-sys.path.insert(0, '/home/loki/ideas/sea-qwens/worktrees/legion-implement')
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+sys.path.insert(0, '/home/loki/ideas/sea-qwens-dev')
 from services.manager.interviewer import Interviewer
 
 
@@ -23,7 +28,7 @@ def interview():
     click.echo("=" * 60)
     click.echo()
 
-    interviewer = Interviewer()
+    interviewer = Interviewer(librarian_url=LIBRARIAN_URL)
 
     while not interviewer.is_complete():
         question = interviewer.get_next_question()
@@ -34,8 +39,47 @@ def interview():
         answer = click.prompt("Your answer")
         interviewer.record_response(answer, question.category)
 
+        # After getting project name, try to load code context
+        if question.category == "overview" and interviewer.questions_asked == 1:
+            project_name = interviewer.responses[-1]["answer"].strip()
+            if project_name:
+                click.echo(click.style(f"\nChecking for existing project: {project_name}...", fg="yellow"))
+                interviewer.load_code_context(project_name, [])
+                if interviewer.code_context:
+                    overview = interviewer.code_context.get_project_overview(project_name)
+                    if overview:
+                        click.echo(click.style(
+                            f"Found existing code: {overview['total_files']} files, "
+                            f"{overview['total_functions']} functions, "
+                            f"{overview['total_classes']} classes",
+                            fg="cyan"
+                        ))
+                    else:
+                        click.echo(click.style("No existing code found for this project.", fg="yellow"))
+                else:
+                    click.echo(click.style("Could not connect to code database.", fg="yellow"))
+
     # Extract and display spec
     spec = interviewer.extract_project_spec()
+
+    # Show existing features if code context is available
+    if interviewer.code_context and spec["features"]:
+        click.echo(click.style("\nChecking existing features...", fg="yellow"))
+        feature_map = interviewer.code_context.find_existing_features(
+            spec["name"], spec["features"]
+        )
+        for feature, info in feature_map.items():
+            if info["found"]:
+                match_names = ", ".join(m["name"] for m in info["matches"])
+                click.echo(click.style(
+                    f"  ✓ '{feature}' — found: {match_names}",
+                    fg="green"
+                ))
+            else:
+                click.echo(click.style(
+                    f"  ✗ '{feature}' — not found (new implementation needed)",
+                    fg="yellow"
+                ))
 
     click.echo()
     click.echo("=" * 60)
