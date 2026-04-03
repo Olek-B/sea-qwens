@@ -1,6 +1,15 @@
 from pydantic import BaseModel
 from typing import Optional
 import json
+import logging
+
+logger = logging.getLogger(__name__)
+
+try:
+    from shared.code_query_tools import ProjectCodeContext, CodeQueryTools
+except ImportError:
+    ProjectCodeContext = None
+    CodeQueryTools = None
 
 
 class InterviewQuestion(BaseModel):
@@ -35,10 +44,32 @@ class Interviewer:
         ),
     ]
 
-    def __init__(self):
+    def __init__(self, librarian_url: str = "http://localhost:8001"):
         self.questions_asked = 0
         self.responses: list[dict] = []
         self.current_question_idx = 0
+        self.code_context = None
+        self.librarian_url = librarian_url
+
+    def load_code_context(self, project_name: str, features: list[str]):
+        """Load code context for an existing project.
+
+        Gracefully handles missing project or connection errors.
+        """
+        if ProjectCodeContext is None:
+            logger.warning("CodeQueryTools not available, skipping code context")
+            self.code_context = None
+            return
+
+        try:
+            tools = CodeQueryTools(self.librarian_url)
+            self.code_context = ProjectCodeContext(tools)
+            overview = self.code_context.get_project_overview(project_name)
+            if overview:
+                self.code_context.find_existing_features(project_name, features)
+        except Exception as e:
+            logger.warning(f"Failed to load code context: {e}")
+            self.code_context = None
 
     def get_next_question(self) -> Optional[InterviewQuestion]:
         if self.current_question_idx >= len(self.QUESTIONS):
