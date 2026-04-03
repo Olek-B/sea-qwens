@@ -27,6 +27,7 @@ class ExecuteRequest(BaseModel):
     task: Task
     tool_id: Optional[str] = None
     tool_command: str = "qwen --non-interactive"
+    adapter: Optional[str] = None  # Optional: adapter script name
     worktree_path: Optional[str] = None
 
 
@@ -62,8 +63,8 @@ async def execute_task(
 
     if task_id in _execution_store:
         raise HTTPException(
-            status_code=404,
-            detail=f"Task {task_id} not found",
+            status_code=409,
+            detail=f"Task {task_id} already exists",
         )
 
     _execution_store[task_id] = ExecutionResult(
@@ -78,6 +79,7 @@ async def execute_task(
         tool_id=request.tool_id,
         tool_command=request.tool_command,
         worktree_path=request.worktree_path,
+        adapter=request.adapter,
     )
 
     return ExecuteResponse(
@@ -124,6 +126,7 @@ async def _run_execution(
     tool_id: Optional[str],
     tool_command: str,
     worktree_path: Optional[str],
+    adapter: Optional[str] = None,
 ):
     """Run task execution in the background."""
     logger.info(f"Starting execution of task: {task.task_id} with tool: {tool_id}")
@@ -140,6 +143,7 @@ async def _run_execution(
             tool_id=tool_id,
             tool_command=tool_command,
             worktree_path=worktree_path,
+            adapter=adapter,
         )
         _execution_store[task.task_id] = result
 

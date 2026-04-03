@@ -23,12 +23,33 @@ class ExecutionResult:
 class TaskExecutor:
     """Execute coding tasks using CLI tools in isolated worktrees."""
 
+    def __init__(self, adapters_base: str = "/app/adapters"):
+        self._adapters_base = adapters_base
+
+    def _resolve_adapter(self, adapter: str, tool_name: str) -> Optional[str]:
+        """Resolve the adapter script path.
+
+        Args:
+            adapter: Adapter script name (e.g. "qwen.sh"). If empty, defaults to "<tool_name>.sh".
+            tool_name: Tool name used as fallback adapter name ("<tool_name>.sh").
+
+        Returns:
+            Full path to adapter script if it exists, else None.
+        """
+        adapter_name = adapter if adapter else f"{tool_name}.sh"
+        adapter_path = Path(self._adapters_base) / adapter_name
+
+        if adapter_path.is_file():
+            return str(adapter_path)
+        return None
+
     def execute_task(
         self,
         task: Task,
         tool_id: Optional[str] = None,
         tool_command: str = "qwen --non-interactive",
         worktree_path: str = "",
+        adapter: Optional[str] = None,
     ) -> ExecutionResult:
         """
         Execute a task in the given worktree.
@@ -53,11 +74,19 @@ class TaskExecutor:
             if tool_id:
                 env["SEA_QWENS_TOOL_ID"] = tool_id
 
-            cmd = [
-                *tool_command.split(),
-                "--prompt", prompt,
-                "--cwd", str(wt_path),
-            ]
+            # Try adapter execution first, fall back to raw command
+            adapter_path = self._resolve_adapter(adapter or "", tool_id or "")
+            if adapter_path:
+                cmd = ["bash", adapter_path, "--prompt", prompt, "--cwd", str(wt_path)]
+                if tool_id:
+                    cmd.extend(["--tool_id", tool_id])
+            else:
+                # Fallback: raw command execution (backward compatible)
+                cmd = [
+                    *tool_command.split(),
+                    "--prompt", prompt,
+                    "--cwd", str(wt_path),
+                ]
 
             result = subprocess.run(
                 cmd,
@@ -92,7 +121,7 @@ class TaskExecutor:
             return ExecutionResult(
                 success=False,
                 task_id=task.task_id,
-                error=f"Command not found: {tool_command.split()[0]}",
+                error=f"Command not found: {cmd[0]}",
             )
         except Exception as e:
             return ExecutionResult(

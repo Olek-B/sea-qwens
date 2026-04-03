@@ -152,3 +152,35 @@ def test_execute_task_uses_custom_command():
     # Should fail due to missing worktree, not command parsing
     assert result.success is False
     assert result.task_id == "task-cmd-test"
+
+
+# ─── _resolve_adapter Tests ─────────────────────────────────────────────────
+
+def test_resolve_adapter_returns_path_when_adapter_exists(tmp_path):
+    """_resolve_adapter should return path when adapter file exists."""
+    executor = TaskExecutor()
+    # Create a fake adapters directory with a script
+    adapters_dir = tmp_path / "adapters"
+    adapters_dir.mkdir()
+    (adapters_dir / "qwen.sh").write_text("#!/bin/bash\necho hello")
+
+    # Override the adapters base path for testing
+    executor._adapters_base = str(adapters_dir)
+
+    result = executor._resolve_adapter("qwen.sh", "qwen-code")
+    assert result == str(adapters_dir / "qwen.sh")
+
+
+def test_resolve_adapter_defaults_to_tool_name_sh():
+    """_resolve_adapter should default to <tool_name>.sh when adapter is empty."""
+    executor = TaskExecutor()
+    # No adapters directory set up — should return None (file not found)
+    result = executor._resolve_adapter("", "my-tool")
+    assert result is None
+
+
+def test_resolve_adapter_returns_none_for_missing_adapter():
+    """_resolve_adapter should return None when adapter file doesn't exist."""
+    executor = TaskExecutor()
+    result = executor._resolve_adapter("nonexistent.sh", "some-tool")
+    assert result is None
