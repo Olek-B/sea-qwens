@@ -1,5 +1,6 @@
 # services/worker/executor.py
 import logging
+import shlex
 import subprocess
 import os
 import json
@@ -26,8 +27,8 @@ class ExecutionResult:
 class TaskExecutor:
     """Execute coding tasks using CLI tools in isolated worktrees."""
 
-    def __init__(self, adapters_base: str = "/app/adapters"):
-        self._adapters_base = adapters_base
+    def __init__(self, adapters_base: str | None = None):
+        self._adapters_base = adapters_base or os.getenv("ADAPTERS_BASE_DIR", "/app/adapters")
 
     def _resolve_adapter(self, adapter: str, tool_name: str) -> Optional[str]:
         """Resolve the adapter script path.
@@ -92,7 +93,7 @@ class TaskExecutor:
             else:
                 logger.info("No adapter found for task %s, falling back to raw command", task.task_id)
                 cmd = [
-                    *tool_command.split(),
+                    *shlex.split(tool_command),
                     "--prompt", prompt,
                     "--cwd", str(wt_path),
                 ]

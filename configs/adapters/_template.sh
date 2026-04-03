@@ -33,7 +33,7 @@ fi
 # export PATH="/path/to/tool/bin:$PATH"
 # export TOOL_CONFIG_DIR="$HOME/.tool-config"
 
-# TODO: Execute the tool
-# exec your-tool --non-interactive --prompt "$PROMPT" --cwd "$CWD"
+# ⚠️ REPLACE THE LINE BELOW with your tool's exec command
+# Example: exec your-tool --non-interactive --prompt "$PROMPT" --cwd "$CWD"
 echo "Adapter not configured" >&2
 exit 1
