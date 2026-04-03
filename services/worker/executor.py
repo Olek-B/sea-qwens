@@ -1,12 +1,12 @@
+# services/worker/executor.py
 import subprocess
 import os
 import json
-import yaml
 from pathlib import Path
 from typing import Optional
 from dataclasses import dataclass, field
 
-from shared.models import Task, Tool
+from shared.models import Task
 
 
 @dataclass
@@ -21,25 +21,23 @@ class ExecutionResult:
 
 
 class TaskExecutor:
-    """Execute coding tasks using qwen-code CLI in isolated worktrees."""
-
-    QWEN_CODE_CMD = "qwen"  # qwen-code CLI command
+    """Execute coding tasks using CLI tools in isolated worktrees."""
 
     def execute_task(
         self,
         task: Task,
-        profile_id: Optional[str] = None,
+        tool_id: Optional[str] = None,
+        tool_command: str = "qwen --non-interactive",
         worktree_path: str = "",
     ) -> ExecutionResult:
         """
         Execute a task in the given worktree.
 
         1. Build prompt from task title + contract
-        2. Run qwen-code CLI in the worktree directory
+        2. Run the given CLI tool in the worktree directory
         3. Run self-tests (pytest) in the worktree
         4. Return ExecutionResult
         """
-        # Validate worktree path
         wt_path = Path(worktree_path)
         if not wt_path.exists() or not wt_path.is_dir():
             return ExecutionResult(
@@ -48,20 +46,17 @@ class TaskExecutor:
                 error=f"Worktree path does not exist: {worktree_path}",
             )
 
-        # Build the prompt
         prompt = self._build_prompt(task.title, task.contract)
 
-        # Run qwen-code CLI in the worktree
         try:
             env = os.environ.copy()
-            if profile_id:
-                env["LEGION_PROFILE_ID"] = profile_id
+            if tool_id:
+                env["LEGION_TOOL_ID"] = tool_id
 
             cmd = [
-                self.QWEN_CODE_CMD,
+                *tool_command.split(),
                 "--prompt", prompt,
                 "--cwd", str(wt_path),
-                "--non-interactive",
             ]
 
             result = subprocess.run(
@@ -69,22 +64,21 @@ class TaskExecutor:
                 cwd=str(wt_path),
                 capture_output=True,
                 text=True,
-                timeout=600,  # 10 minute timeout
+                timeout=600,
                 env=env,
             )
 
-            qwen_output = result.stdout
-            qwen_error = result.stderr
+            tool_output = result.stdout
+            tool_error = result.stderr
 
-            # Detect rate limiting in output
-            rate_limited = self._is_rate_limited(qwen_output, qwen_error)
+            rate_limited = self._is_rate_limited(tool_output, tool_error)
 
             if result.returncode != 0 or rate_limited:
                 return ExecutionResult(
                     success=False,
                     task_id=task.task_id,
-                    output=qwen_output,
-                    error=qwen_error or "qwen-code returned non-zero exit code",
+                    output=tool_output,
+                    error=tool_error or "Tool returned non-zero exit code",
                     rate_limited=rate_limited,
                 )
 
@@ -98,7 +92,7 @@ class TaskExecutor:
             return ExecutionResult(
                 success=False,
                 task_id=task.task_id,
-                error=f"Command not found: {self.QWEN_CODE_CMD}",
+                error=f"Command not found: {tool_command.split()[0]}",
             )
         except Exception as e:
             return ExecutionResult(
@@ -107,20 +101,19 @@ class TaskExecutor:
                 error=str(e),
             )
 
-        # Run self-tests after qwen-code execution
         test_result = self._run_self_tests(str(wt_path), task)
 
         return ExecutionResult(
             success=test_result.success,
             task_id=task.task_id,
-            output=qwen_output + "\n--- Tests ---\n" + test_result.output,
+            output=tool_output + "\n--- Tests ---\n" + test_result.output,
             test_passed=test_result.test_passed,
             error=test_result.error,
             rate_limited=test_result.rate_limited,
         )
 
     def _build_prompt(self, title: str, contract: dict) -> str:
-        """Build prompt for qwen-code with code graph tool instructions."""
+        """Build prompt for the CLI tool with code graph tool instructions."""
         prompt = f"""Implement the following task:
 
 {title}
@@ -160,9 +153,7 @@ You have access to a code knowledge graph. Instead of reading files, use these t
         worktree_path: str,
         task: Task,
     ) -> ExecutionResult:
-        """
-        Run pytest in the worktree to verify the implementation.
-        """
+        """Run pytest in the worktree to verify the implementation."""
         wt_path = Path(worktree_path)
 
         if not wt_path.exists():

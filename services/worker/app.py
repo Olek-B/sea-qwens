@@ -1,3 +1,4 @@
+# services/worker/app.py
 import asyncio
 import logging
 from datetime import datetime
@@ -7,7 +8,7 @@ from fastapi import FastAPI, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 
 from services.worker.executor import TaskExecutor, ExecutionResult
-from shared.models import Task, Tool, TaskStatus
+from shared.models import Task
 
 logger = logging.getLogger(__name__)
 
@@ -19,15 +20,13 @@ app = FastAPI(
 
 executor = TaskExecutor()
 
-# In-memory store for execution results
 _execution_store: dict[str, ExecutionResult] = {}
 
 
-# ─── Request / Response Models ────────────────────────────────────────────────
-
 class ExecuteRequest(BaseModel):
     task: Task
-    profile_id: Optional[str] = None
+    tool_id: Optional[str] = None
+    tool_command: str = "qwen --non-interactive"
     worktree_path: str
 
 
@@ -53,36 +52,31 @@ class HealthResponse(BaseModel):
     timestamp: str
 
 
-# ─── Endpoints ────────────────────────────────────────────────────────────────
-
 @app.post("/execute", response_model=ExecuteResponse)
 async def execute_task(
     request: ExecuteRequest,
     background_tasks: BackgroundTasks,
 ):
-    """
-    Submit a task for execution. Runs asynchronously in the background.
-    """
+    """Submit a task for execution. Runs asynchronously in the background."""
     task_id = request.task.task_id
 
     if task_id in _execution_store:
         raise HTTPException(
-            status_code=409,
-            detail=f"Task {task_id} is already being executed",
+            status_code=404,
+            detail=f"Task {task_id} not found",
         )
 
-    # Mark as in-progress with a placeholder
     _execution_store[task_id] = ExecutionResult(
         success=False,
         task_id=task_id,
         output="Task queued for execution",
     )
 
-    # Run in background
     background_tasks.add_task(
         _run_execution,
         task=request.task,
-        profile_id=request.profile_id,
+        tool_id=request.tool_id,
+        tool_command=request.tool_command,
         worktree_path=request.worktree_path,
     )
 
@@ -95,9 +89,7 @@ async def execute_task(
 
 @app.get("/execute/{task_id}", response_model=ExecutionStatus)
 async def get_execution_status(task_id: str):
-    """
-    Get the execution status for a task.
-    """
+    """Get the execution status for a task."""
     if task_id not in _execution_store:
         raise HTTPException(
             status_code=404,
@@ -127,20 +119,20 @@ async def health_check():
     )
 
 
-# ─── Background Task ─────────────────────────────────────────────────────────
-
 async def _run_execution(
     task: Task,
-    profile_id: Optional[str],
+    tool_id: Optional[str],
+    tool_command: str,
     worktree_path: str,
 ):
     """Run task execution in the background."""
-    logger.info(f"Starting execution of task: {task.task_id}")
+    logger.info(f"Starting execution of task: {task.task_id} with tool: {tool_id}")
 
     try:
         result = executor.execute_task(
             task=task,
-            profile_id=profile_id,
+            tool_id=tool_id,
+            tool_command=tool_command,
             worktree_path=worktree_path,
         )
         _execution_store[task.task_id] = result
@@ -148,9 +140,7 @@ async def _run_execution(
         if result.success:
             logger.info(f"Task {task.task_id} completed successfully")
         else:
-            logger.warning(
-                f"Task {task.task_id} failed: {result.error}"
-            )
+            logger.warning(f"Task {task.task_id} failed: {result.error}")
 
     except Exception as e:
         logger.error(f"Task {task.task_id} raised unexpected error: {e}")
