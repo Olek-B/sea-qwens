@@ -27,7 +27,7 @@ class ExecuteRequest(BaseModel):
     task: Task
     tool_id: Optional[str] = None
     tool_command: str = "qwen --non-interactive"
-    worktree_path: str
+    worktree_path: Optional[str] = None
 
 
 class ExecuteResponse(BaseModel):
@@ -123,10 +123,16 @@ async def _run_execution(
     task: Task,
     tool_id: Optional[str],
     tool_command: str,
-    worktree_path: str,
+    worktree_path: Optional[str],
 ):
     """Run task execution in the background."""
     logger.info(f"Starting execution of task: {task.task_id} with tool: {tool_id}")
+
+    # Create worktree if not provided
+    if not worktree_path:
+        from services.worker.worktree_manager import WorktreeManager
+        wt_manager = WorktreeManager()
+        worktree_path = wt_manager.create_worktree(task.task_id)
 
     try:
         result = executor.execute_task(

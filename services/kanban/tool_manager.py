@@ -73,8 +73,14 @@ class ToolManager:
         return None
 
     def mark_tool_rate_limited(self, tool_name: str):
-        """Mark a tool as rate-limited in Neo4j"""
-        pass
+        """Mark a tool as rate-limited in Neo4j via Librarian"""
+        try:
+            requests.put(
+                f"{self.librarian_url}/tools/{tool_name}/status",
+                json={"health_status": "RATE_LIMITED"}
+            )
+        except requests.exceptions.RequestException:
+            pass
 
     def increment_tool_usage(self, tool_name: str) -> bool:
         """Increment tool usage counters"""

@@ -119,6 +119,12 @@ class Neo4jStore:
             record = result.single()
             return dict(record["t"])
 
+    def get_all_tools(self) -> list[dict]:
+        """Get all tools from Neo4j."""
+        with self.driver.session() as session:
+            result = session.run("MATCH (t:Tool) RETURN t")
+            return [dict(record["t"]) for record in result]
+
     def get_least_used_tool(self) -> Optional[dict]:
         """Get tool with lowest usage_count among healthy tools"""
         with self.driver.session() as session:

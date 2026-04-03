@@ -1,7 +1,10 @@
 from fastapi import FastAPI, HTTPException, Query
+from contextlib import asynccontextmanager
 from pydantic import BaseModel, Field
 from typing import Optional, List
 from services.librarian.config import settings
+import json
+import logging
 import sys
 import os
 
@@ -10,7 +13,41 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
 from shared.models import ProjectSpec, Task, TaskStatus, Tool
 
-app = FastAPI(title="Legion Librarian")
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Seed tools from configs/tools.json on startup."""
+    _seed_tools()
+    yield
+
+
+def _seed_tools():
+    """Load tools from config file and create them in Neo4j if they don't exist."""
+    config_path = os.path.join(os.path.dirname(__file__), '..', '..', 'configs', 'tools.json')
+    if not os.path.exists(config_path):
+        logger.warning(f"Tools config not found: {config_path}")
+        return
+
+    try:
+        with open(config_path) as f:
+            tools_config = json.load(f)
+    except (json.JSONDecodeError, IOError) as e:
+        logger.error(f"Failed to read tools config: {e}")
+        return
+
+    neo4j = get_neo4j_store()
+    existing_tools = neo4j.get_all_tools()
+    existing_names = {t["name"] for t in existing_tools}
+
+    for tool_data in tools_config:
+        if tool_data["name"] not in existing_names:
+            neo4j.create_tool(tool_data)
+            logger.info(f"Seeded tool: {tool_data['name']}")
+
+
+app = FastAPI(title="Legion Librarian", lifespan=lifespan)
 
 # Store instances - initialized lazily for testability
 _neo4j_store = None
@@ -161,6 +198,13 @@ def ingest_document(data: IngestInput):
     return {"status": "ok", "uid": data.uid}
 
 
+@app.get("/tools")
+def get_all_tools():
+    """Get all tools."""
+    neo4j = get_neo4j_store()
+    return neo4j.get_all_tools()
+
+
 @app.get("/tools/least-used")
 def get_least_used_tool():
     """Get the least used healthy tool"""
@@ -179,6 +223,30 @@ def increment_tool_usage(tool_name: str):
     if not result:
         raise HTTPException(status_code=404, detail="Tool not found")
     return result
+
+
+class ToolStatusUpdate(BaseModel):
+    health_status: str
+
+
+@app.put("/tools/{tool_name}/status")
+def update_tool_status(tool_name: str, update: ToolStatusUpdate):
+    """Update a tool's health status"""
+    neo4j = get_neo4j_store()
+    with neo4j.driver.session() as session:
+        result = session.run(
+            """
+            MATCH (t:Tool {name: $name})
+            SET t.health_status = $health_status
+            RETURN t
+            """,
+            name=tool_name,
+            health_status=update.health_status
+        )
+        record = result.single()
+        if not record:
+            raise HTTPException(status_code=404, detail="Tool not found")
+        return dict(record["t"])
 
 
 # ==================== Code Knowledge Graph Endpoints ====================
