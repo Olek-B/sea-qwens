@@ -68,15 +68,30 @@ wait_seconds() {
     success "${label} ready."
 }
 
-# ── Step 1: Stop all running containers ──────────────────────────────────────
+# ── Step 1: Stop and remove all running containers ───────────────────────────
 stop_containers() {
-    info "Stopping all running Sea Qwens containers…"
+    info "Stopping and removing all Sea Qwens containers…"
+    
+    # Try graceful shutdown first
     if compose ps --quiet 2>/dev/null | grep -q .; then
-        compose down
-        success "All containers stopped."
+        compose down --remove-orphans 2>/dev/null || true
+        success "Containers stopped and removed."
     else
-        info "No running containers found."
+        info "No running containers found via compose."
     fi
+    
+    # Force-remove any lingering containers by name
+    info "Checking for lingering containers…"
+    local container_names=("sea-qwens-neo4j" "sea-qwens-chromadb" "sea-qwens-librarian" "sea-qwens-manager" "sea-qwens-atomizer" "sea-qwens-kanban" "sea-qwens-worker" "sea-qwens-tester")
+    
+    for name in "${container_names[@]}"; do
+        if docker ps -a --format '{{.Names}}' | grep -q "^${name}$"; then
+            warn "Removing lingering container: ${name}"
+            docker rm -f "${name}" 2>/dev/null || true
+        fi
+    done
+    
+    success "All containers cleaned up."
 }
 
 # ── Step 2: Pull latest base images ──────────────────────────────────────────
