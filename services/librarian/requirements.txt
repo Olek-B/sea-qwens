@@ -4,6 +4,7 @@ pydantic==2.5.3
 pydantic-settings==2.1.0
 neo4j==5.17.0
 chromadb==0.4.22
+numpy<2.0
 pytest==8.0.0
 httpx==0.26.0
 tree-sitter>=0.21.0

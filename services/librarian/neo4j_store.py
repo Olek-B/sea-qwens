@@ -2,6 +2,7 @@ from neo4j import GraphDatabase
 from services.librarian.config import settings
 from typing import Optional, Any
 import uuid
+import json
 from shared.models import CodeFile, CodeFunction, CodeClass
 from shared.indexer import IndexResult, CallRelation
 
@@ -62,6 +63,11 @@ class Neo4jStore:
 
     def create_task(self, task_data: dict) -> dict:
         """Create a new Task node in Neo4j"""
+        # Neo4j doesn't support nested dicts as properties, so we serialize contract as JSON
+        task_data = task_data.copy()
+        if isinstance(task_data.get("contract"), dict):
+            task_data["contract"] = json.dumps(task_data["contract"])
+        
         with self.driver.session() as session:
             result = session.run(
                 """
@@ -78,7 +84,14 @@ class Neo4jStore:
                 **task_data
             )
             record = result.single()
-            return dict(record["t"])
+            task = dict(record["t"])
+            # Deserialize contract when reading
+            if isinstance(task.get("contract"), str):
+                try:
+                    task["contract"] = json.loads(task["contract"])
+                except (json.JSONDecodeError, TypeError):
+                    pass
+            return task
 
     def get_ready_tasks(self) -> list[dict]:
         """Get tasks where all dependencies are DONE"""
@@ -87,12 +100,24 @@ class Neo4jStore:
                 """
                 MATCH (t:Task {status: 'PENDING'})
                 WHERE ALL(dep_id IN t.dependencies WHERE
-                    EXISTS((:Task {task_id: dep_id, status: 'DONE'}))
+                    EXISTS {
+                        MATCH (dep:Task {task_id: dep_id, status: 'DONE'})
+                    }
                 )
                 RETURN t
                 """
             )
-            return [dict(record["t"]) for record in result]
+            tasks = []
+            for record in result:
+                task = dict(record["t"])
+                # Deserialize contract when reading
+                if isinstance(task.get("contract"), str):
+                    try:
+                        task["contract"] = json.loads(task["contract"])
+                    except (json.JSONDecodeError, TypeError):
+                        pass
+                tasks.append(task)
+            return tasks
 
     def update_task_status(self, task_id: str, status: str, metadata: Optional[dict] = None) -> Optional[dict]:
         """Update a task's status"""

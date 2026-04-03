@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+import os
 from fastapi import FastAPI, BackgroundTasks
 from apscheduler.schedulers.background import BackgroundScheduler
 from services.kanban.dispatcher import Dispatcher
@@ -6,10 +8,29 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Sea Qwens Kanban")
+LIBRARIAN_URL = os.getenv("LIBRARIAN_URL", "http://localhost:8001")
+WORKER_URL = os.getenv("WORKER_URL", "http://localhost:8004")
 
-dispatcher = Dispatcher()
+dispatcher = Dispatcher(librarian_url=LIBRARIAN_URL, worker_url=WORKER_URL)
 scheduler = BackgroundScheduler()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup and shutdown events using lifespan context manager"""
+    # Startup
+    scheduler.add_job(
+        poll_and_dispatch_job,
+        trigger="interval",
+        seconds=30,  # Poll every 30 seconds
+        id="poll_and_dispatch",
+        replace_existing=True
+    )
+    scheduler.start()
+    logger.info("Kanban dispatcher started (30s polling)")
+    yield
+    # Shutdown
+    scheduler.shutdown()
 
 
 def poll_and_dispatch_job():
@@ -22,24 +43,7 @@ def poll_and_dispatch_job():
         logger.error(f"Dispatch error: {e}")
 
 
-@app.on_event("startup")
-async def start_scheduler():
-    """Start background polling on startup"""
-    scheduler.add_job(
-        poll_and_dispatch_job,
-        trigger="interval",
-        seconds=30,  # Poll every 30 seconds
-        id="poll_and_dispatch",
-        replace_existing=True
-    )
-    scheduler.start()
-    logger.info("Kanban dispatcher started (30s polling)")
-
-
-@app.on_event("shutdown")
-async def stop_scheduler():
-    """Stop scheduler on shutdown"""
-    scheduler.shutdown()
+app = FastAPI(title="Sea Qwens Kanban", lifespan=lifespan)
 
 
 @app.get("/health")

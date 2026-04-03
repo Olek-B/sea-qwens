@@ -19,11 +19,10 @@ class ChromaStore:
 
     def add_document(self, uid: str, content: str, metadata: Optional[dict] = None):
         """Add a document to the vector store"""
-        self.collection.add(
-            documents=[content],
-            ids=[uid],
-            metadatas=[metadata or {}]
-        )
+        kwargs: dict = {"documents": [content], "ids": [uid]}
+        if metadata:
+            kwargs["metadatas"] = [metadata]
+        self.collection.add(**kwargs)
 
     def search_similar(self, query: str, n_results: int = 5) -> list:
         """Search for similar documents by query text"""
