@@ -276,6 +276,23 @@ python -c "from shared.config import bootstrap_configs; bootstrap_configs()"
 SEA_QWENS_CONFIG_DIR=/custom/path docker compose up -d librarian
 ```
 
+### Tool Adapters
+
+Tool adapters let you swap CLI tools in and out without rebuilding container images. Each adapter is a small shell script that sets up the tool's environment (PATH, config dirs, auth) and then executes it.
+
+**Adapter location:** `~/.config/sea-qwens/adapters/`
+
+**Adding a new tool:**
+
+1. Copy the template: `cp ~/.config/sea-qwens/adapters/_template.sh ~/.config/sea-qwens/adapters/my-tool.sh`
+2. Edit `my-tool.sh` — fill in the PATH/config setup and the `exec` line
+3. Add the tool to `~/.config/sea-qwens/tools.json` with `"adapter": "my-tool.sh"`
+4. Restart the Kanban service: `docker compose restart kanban`
+
+**How it works:**
+
+The Worker resolves the adapter path from the tool config, executes it via `bash`, and falls back to raw `tool_command` if the adapter is missing. This means existing tool entries without an `adapter` field continue to work unchanged.
+
 ---
 
 ## Development
