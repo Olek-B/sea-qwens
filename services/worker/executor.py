@@ -120,33 +120,38 @@ class TaskExecutor:
         )
 
     def _build_prompt(self, title: str, contract: dict) -> str:
-        """
-        Build a structured prompt for qwen-code from task title and contract.
-        """
-        contract_yaml = yaml.dump(contract, default_flow_style=False) if contract else "(no contract)"
+        """Build prompt for qwen-code with code graph tool instructions."""
+        prompt = f"""Implement the following task:
 
-        prompt = f"""# Task: {title}
+{title}
 
-## Contract / Specification
+Requirements (contract):
+{json.dumps(contract, indent=2)}
 
-```yaml
-{contract_yaml}
-```
+## Code Knowledge Graph Tools
 
-## Instructions
+You have access to a code knowledge graph. Instead of reading files, use these tools to understand the codebase:
 
-1. Implement the feature described above.
-2. Follow the project's existing patterns and style.
-3. Write tests for all new functionality.
-4. Ensure all tests pass before finishing.
-5. Do NOT modify existing tests unless they are incorrect.
+- `search_code(query)` - Find functions/classes by semantic search
+- `get_function(name)` - Get a function's body and signature
+- `get_callers(name)` - Find who calls this function
+- `get_callees(name)` - Find what this function calls
+- `get_full_context(name)` - Get complete context for understanding a function
+- `get_class(name)` - Get a class definition and all methods
 
-## Backend-Developer Guidelines
+## Workflow
 
-- Validate all external inputs
-- Fail fast and log context-rich errors
-- Keep functions under 40 lines where possible
-- Write atomic, well-described commits
+1. Before implementing, search for existing related code
+2. Use `get_full_context` to understand call chains
+3. Implement your changes following existing patterns
+4. Ensure your code integrates with existing functions
+
+## Guidelines
+
+- Write clean, tested code
+- Follow best practices
+- Ensure all tests pass
+- Do not modify files outside the task scope
 """
         return prompt
 
