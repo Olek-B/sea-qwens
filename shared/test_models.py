@@ -58,6 +58,21 @@ def test_tool_creation():
     assert tool.health_status == ToolHealth.HEALTHY
 
 
+def test_tool_model_has_adapter_field():
+    """Tool model should have an optional adapter field defaulting to empty string."""
+    from shared.models import Tool
+    tool = Tool(name="qwen-code", command="qwen --non-interactive")
+    assert hasattr(tool, "adapter"), "Tool model missing adapter field"
+    assert tool.adapter == "", "adapter should default to empty string"
+
+
+def test_tool_model_with_adapter():
+    """Tool model should accept an adapter value."""
+    from shared.models import Tool
+    tool = Tool(name="qwen-code", command="qwen --non-interactive", adapter="qwen.sh")
+    assert tool.adapter == "qwen.sh"
+
+
 from shared.models import CodeFile, CodeFunction, CodeClass
 
 def test_code_file_creation():

@@ -46,6 +46,7 @@ class Task(BaseModel):
 class Tool(BaseModel):
     name: str
     command: str = "qwen --non-interactive"
+    adapter: str = ""  # Optional: adapter script name (defaults to <name>.sh)
     usage_count: int = 0
     last_used: Optional[datetime] = None
     daily_limit: int = 1000
