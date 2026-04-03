@@ -54,6 +54,7 @@ class Dispatcher:
         tool = selection.tool
         tool_name = tool["name"]
         tool_command = tool.get("command", "qwen --non-interactive")
+        tool_adapter = tool.get("adapter", "")
 
         # Mark task as IN_PROGRESS in Librarian
         try:
@@ -75,7 +76,8 @@ class Dispatcher:
                 json={
                     "task": task,
                     "tool_id": tool_name,
-                    "tool_command": tool_command
+                    "tool_command": tool_command,
+                    "adapter": tool_adapter or None,
                 }
             )
 
@@ -89,7 +91,7 @@ class Dispatcher:
                     message="Rate limit hit, tool rotated and task re-queued"
                 )
 
-            if response.status_code == 202:
+            if response.status_code in (200, 202):
                 return DispatchResult(
                     success=True,
                     task_id=task["task_id"],
