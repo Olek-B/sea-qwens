@@ -23,9 +23,13 @@ Replaces `configs/profiles.json`. Array of tool objects:
   {
     "name": "qwen-coder",
     "command": "qwen --non-interactive",
-    "health": "HEALTHY",
-    "capabilities": ["coding", "testing", "debugging"],
+    "usage_count": 0,
+    "last_used": null,
+    "daily_limit": 1000,
     "requests_today": 0,
+    "reset_time": "2026-04-03T00:00:00Z",
+    "capabilities": ["coding", "testing", "debugging"],
+    "health_status": "HEALTHY",
     "consecutive_failures": 0
   }
 ]
@@ -35,9 +39,13 @@ Replaces `configs/profiles.json`. Array of tool objects:
 |-------|------|-------------|
 | `name` | string | Human-readable identifier (user's choice) |
 | `command` | string | Non-interactive CLI command; prompt is appended at runtime |
-| `health` | string | `HEALTHY`, `RATE_LIMITED`, or `ERROR` |
-| `capabilities` | string[] | Skill tags. Default: all tools get all capabilities |
+| `usage_count` | int | Total lifetime usage counter |
+| `last_used` | string\|null | ISO timestamp of last use |
+| `daily_limit` | int | Max requests per day before rate limiting |
 | `requests_today` | int | Usage counter for least-used rotation |
+| `reset_time` | string | ISO timestamp for daily counter reset |
+| `capabilities` | string[] | Skill tags. Default: all tools get all capabilities |
+| `health_status` | string | `HEALTHY`, `RATE_LIMITED`, or `ERROR` |
 | `consecutive_failures` | int | Auto-tracked for health detection |
 
 ### Shared Model Changes (`shared/models.py`)
@@ -69,7 +77,7 @@ Replaces `configs/profiles.json`. Array of tool objects:
 
 - Dispatcher queries `GET /tools/least-used` instead of profiles endpoint
 - Passes `tool_id` and `tool_command` to Worker in dispatch payload
-- Tool selection logic: filter by `health == "HEALTHY"` and matching capabilities, then sort by `requests_today` ascending
+- Tool selection logic: filter by `health_status == "HEALTHY"` and matching capabilities, then sort by `requests_today` ascending
 
 #### Worker (`services/worker/`)
 
@@ -109,9 +117,9 @@ Worker runs: <tool_command> --prompt "<prompt>" --cwd <worktree>
 
 ### Error Handling
 
-- If a tool's `consecutive_failures` exceeds a threshold (e.g., 3), its `health` is set to `ERROR` and it's excluded from dispatch
-- Rate limit detection in Worker output (existing `_is_rate_limited()` method) sets tool health to `RATE_LIMITED`
-- Tools with `health != "HEALTHY"` are excluded from least-used queries
+- If a tool's `consecutive_failures` exceeds a threshold (e.g., 3), its `health_status` is set to `ERROR` and it's excluded from dispatch
+- Rate limit detection in Worker output (existing `_is_rate_limited()` method) sets tool `health_status` to `RATE_LIMITED`
+- Tools with `health_status != "HEALTHY"` are excluded from least-used queries
 
 ### Testing Strategy
 
