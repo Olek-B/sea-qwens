@@ -1,0 +1,1 @@
+"""Sea Qwens interactive installer."""
