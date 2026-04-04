@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel, Field
 from enum import Enum
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 
@@ -25,7 +25,7 @@ class ProjectSpec(BaseModel):
     tech_stack: list[str]
     features: list[str]
     id: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     parent_project: Optional[str] = None
     constraints: list[str] = Field(default_factory=list)
 
@@ -39,8 +39,8 @@ class Task(BaseModel):
     tool_id: Optional[str] = None
     worktree_path: Optional[str] = None
     test_spec: Optional[dict] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class Tool(BaseModel):
@@ -51,8 +51,14 @@ class Tool(BaseModel):
     last_used: Optional[datetime] = None
     daily_limit: int = 1000
     requests_today: int = 0
-    reset_time: datetime = Field(default_factory=lambda: datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0))
-    capabilities: list[str] = Field(default_factory=lambda: ["coding", "testing", "refactoring"])
+    reset_time: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+    )
+    capabilities: list[str] = Field(
+        default_factory=lambda: ["coding", "testing", "refactoring"]
+    )
     health_status: ToolHealth = ToolHealth.HEALTHY
     consecutive_failures: int = 0
 
@@ -61,7 +67,7 @@ class CodeFile(BaseModel):
     path: str
     language: str
     content: str
-    last_updated: datetime = Field(default_factory=datetime.utcnow)
+    last_updated: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class CodeFunction(BaseModel):
