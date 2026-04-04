@@ -17,14 +17,10 @@ class WorktreeManager:
     def _find_repo_root() -> str:
         """Find the git repository root from the current working directory."""
         result = subprocess.run(
-            ["git", "rev-parse", "--show-toplevel"],
-            capture_output=True,
-            text=True
+            ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True
         )
         if result.returncode != 0:
-            raise RuntimeError(
-                f"Could not find git repo root: {result.stderr.strip()}"
-            )
+            raise RuntimeError(f"Could not find git repo root: {result.stderr.strip()}")
         return result.stdout.strip()
 
     def _get_default_branch(self) -> str:
@@ -33,11 +29,11 @@ class WorktreeManager:
             ["git", "rev-parse", "--abbrev-ref", "HEAD"],
             cwd=str(self.root_dir),
             capture_output=True,
-            text=True
+            text=True,
         )
         return result.stdout.strip() if result.returncode == 0 else "main"
 
-    def create_worktree(self, task_id: str, branch: str = None) -> str:
+    def create_worktree(self, task_id: str, branch: Optional[str] = None) -> str:
         """Create a new worktree for a task"""
         worktree_path = self.worktrees_dir / task_id
 
@@ -49,12 +45,17 @@ class WorktreeManager:
         actual_branch = branch if branch is not None else self._get_default_branch()
 
         # Create worktree
-        cmd = ["git", "worktree", "add", "-b", f"task/{task_id}", str(worktree_path), actual_branch]
+        cmd = [
+            "git",
+            "worktree",
+            "add",
+            "-b",
+            f"task/{task_id}",
+            str(worktree_path),
+            actual_branch,
+        ]
         result = subprocess.run(
-            cmd,
-            cwd=str(self.root_dir),
-            capture_output=True,
-            text=True
+            cmd, cwd=str(self.root_dir), capture_output=True, text=True
         )
 
         if result.returncode != 0:
@@ -68,17 +69,21 @@ class WorktreeManager:
 
         # Remove worktree
         cmd = ["git", "worktree", "remove", str(worktree_path), "--force"]
-        subprocess.run(
-            cmd,
-            cwd=str(self.root_dir),
-            capture_output=True,
-            text=True
-        )
+        subprocess.run(cmd, cwd=str(self.root_dir), capture_output=True, text=True)
 
         # Also remove directory if it still exists
         if worktree_path.exists():
             import shutil
+
             shutil.rmtree(worktree_path, ignore_errors=True)
+
+        # Prune stale worktree entries
+        subprocess.run(
+            ["git", "worktree", "prune"],
+            cwd=str(self.root_dir),
+            capture_output=True,
+            text=True,
+        )
 
     def get_worktree_path(self, task_id: str) -> str:
         """Get the path to a worktree"""

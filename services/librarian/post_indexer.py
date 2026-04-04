@@ -28,22 +28,34 @@ class PostIndexer:
                 self.neo4j.upsert_index_result(result)
                 for func in result.functions:
                     uid = f"{func.file_path}:{func.name}"
-                    self.chroma.delete_by_id(uid)
+                    try:
+                        self.chroma.delete_by_id(uid)
+                    except Exception:
+                        pass
                     self.chroma.add_function_embedding(
-                        uid=uid, body=func.body,
-                        metadata={"name": func.name, "file": func.file_path}
+                        uid=uid,
+                        body=func.body,
+                        metadata={"name": func.name, "file": func.file_path},
                     )
                 for cls in result.classes:
                     uid = f"{cls.file_path}:{cls.name}"
-                    self.chroma.delete_by_id(uid)
+                    try:
+                        self.chroma.delete_by_id(uid)
+                    except Exception:
+                        pass
                     self.chroma.add_class_embedding(
-                        uid=uid, body=cls.body,
-                        metadata={"name": cls.name, "file": cls.file_path}
+                        uid=uid,
+                        body=cls.body,
+                        metadata={"name": cls.name, "file": cls.file_path},
                     )
-                results.append({
-                    "file": rel_path, "action": "updated",
-                    "functions": len(result.functions), "classes": len(result.classes)
-                })
+                results.append(
+                    {
+                        "file": rel_path,
+                        "action": "updated",
+                        "functions": len(result.functions),
+                        "classes": len(result.classes),
+                    }
+                )
             except Exception as e:
                 results.append({"file": rel_path, "action": "error", "error": str(e)})
         return {"total": len(files), "results": results}

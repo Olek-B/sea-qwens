@@ -1,4 +1,5 @@
 """Shared code query tools for all services that need code database access."""
+
 import requests
 import logging
 from typing import Optional
@@ -16,13 +17,13 @@ class CodeQueryTools:
     def __init__(self, librarian_url: str = "http://localhost:8001"):
         self.librarian_url = librarian_url
 
-    def search_code(self, query: str, type: str = "function") -> list:
+    def search_code(self, query: str, entity_type: str = "function") -> list:
         """Search for functions/classes by semantic similarity."""
         try:
             response = requests.get(
                 f"{self.librarian_url}/code/search",
-                params={"q": query, "type": type},
-                timeout=10
+                params={"q": query, "type": entity_type},
+                timeout=10,
             )
             if response.status_code == 200:
                 return response.json().get("results", [])
@@ -34,8 +35,7 @@ class CodeQueryTools:
         """Get function body and signature by name."""
         try:
             response = requests.get(
-                f"{self.librarian_url}/code/function/{name}",
-                timeout=10
+                f"{self.librarian_url}/code/function/{name}", timeout=10
             )
             if response.status_code == 200:
                 return response.json()
@@ -48,7 +48,7 @@ class CodeQueryTools:
         try:
             response = requests.get(
                 f"{self.librarian_url}/code/function/{function_name}/callers",
-                timeout=10
+                timeout=10,
             )
             if response.status_code == 200:
                 return response.json().get("callers", [])
@@ -61,7 +61,7 @@ class CodeQueryTools:
         try:
             response = requests.get(
                 f"{self.librarian_url}/code/function/{function_name}/callees",
-                timeout=10
+                timeout=10,
             )
             if response.status_code == 200:
                 return response.json().get("callees", [])
@@ -74,7 +74,7 @@ class CodeQueryTools:
         try:
             response = requests.get(
                 f"{self.librarian_url}/code/function/{function_name}/full-context",
-                timeout=10
+                timeout=10,
             )
             if response.status_code == 200:
                 return response.json()
@@ -86,8 +86,7 @@ class CodeQueryTools:
         """Get class definition and all methods."""
         try:
             response = requests.get(
-                f"{self.librarian_url}/code/class/{name}",
-                timeout=10
+                f"{self.librarian_url}/code/class/{name}", timeout=10
             )
             if response.status_code == 200:
                 return response.json()
@@ -111,8 +110,8 @@ class ProjectCodeContext:
 
         Returns None if the project has no code in the database.
         """
-        all_functions = self.tools.search_code("", type="function")
-        all_classes = self.tools.search_code("", type="class")
+        all_functions = self.tools.search_code("", entity_type="function")
+        all_classes = self.tools.search_code("", entity_type="class")
 
         if not all_functions and not all_classes:
             return None
@@ -128,8 +127,17 @@ class ProjectCodeContext:
         return {
             "project_name": project_name,
             "files": [{"path": f} for f in sorted(files)],
-            "classes": [{"name": c.get("name", ""), "file": c.get("metadata", {}).get("file", "")} for c in all_classes],
-            "functions": [{"name": f.get("name", ""), "file": f.get("file", "")} for f in all_functions],
+            "classes": [
+                {
+                    "name": c.get("name", ""),
+                    "file": c.get("metadata", {}).get("file", ""),
+                }
+                for c in all_classes
+            ],
+            "functions": [
+                {"name": f.get("name", ""), "file": f.get("file", "")}
+                for f in all_functions
+            ],
             "total_files": len(files),
             "total_functions": len(all_functions),
             "total_classes": len(all_classes),
@@ -142,13 +150,22 @@ class ProjectCodeContext:
         """
         result = {}
         for feature in features:
-            matches = self.tools.search_code(feature, type="function")
-            class_matches = self.tools.search_code(feature, type="class")
+            matches = self.tools.search_code(feature, entity_type="function")
+            class_matches = self.tools.search_code(feature, entity_type="class")
             all_matches = []
             for m in matches:
-                all_matches.append({"name": m.get("name", "unknown"), "type": "function"})
+                all_matches.append(
+                    {"name": m.get("name", "unknown"), "type": "function"}
+                )
             for m in class_matches:
-                all_matches.append({"name": m.get("name", m.get("metadata", {}).get("name", "unknown")), "type": "class"})
+                all_matches.append(
+                    {
+                        "name": m.get(
+                            "name", m.get("metadata", {}).get("name", "unknown")
+                        ),
+                        "type": "class",
+                    }
+                )
             result[feature] = {
                 "found": len(all_matches) > 0,
                 "matches": all_matches,
@@ -160,7 +177,7 @@ class ProjectCodeContext:
 
         Returns a dict with 'calls' and 'inherits' lists.
         """
-        all_functions = self.tools.search_code("", type="function")
+        all_functions = self.tools.search_code("", entity_type="function")
         calls = []
         for func in all_functions:
             name = func.get("name")
@@ -170,7 +187,7 @@ class ProjectCodeContext:
             for callee in callees:
                 calls.append({"caller": name, "callee": callee.get("name", "unknown")})
 
-        all_classes = self.tools.search_code("", type="class")
+        all_classes = self.tools.search_code("", entity_type="class")
         inherits = []
         for cls in all_classes:
             name = cls.get("name")
@@ -200,8 +217,8 @@ class ProjectCodeContext:
         keywords = category_keywords.get(category, [category])
         results = []
         for keyword in keywords:
-            results.extend(self.tools.search_code(keyword, type="function"))
-            results.extend(self.tools.search_code(keyword, type="class"))
+            results.extend(self.tools.search_code(keyword, entity_type="function"))
+            results.extend(self.tools.search_code(keyword, entity_type="class"))
         # Deduplicate by name
         seen = set()
         unique = []

@@ -56,10 +56,7 @@ class FeatureInterviewer:
     def list_projects(self) -> list[dict]:
         """Fetch all existing projects from the Librarian."""
         try:
-            response = requests.get(
-                f"{self.librarian_url}/projects",
-                timeout=10
-            )
+            response = requests.get(f"{self.librarian_url}/projects", timeout=10)
             if response.status_code == 200:
                 return response.json()
         except requests.RequestException as e:
@@ -97,7 +94,9 @@ class FeatureInterviewer:
             self.code_context = None
             self.code_context_overview = None
 
-    def generate_questions(self, feature_description: str, code_overview: str) -> Optional[list[str]]:
+    def generate_questions(
+        self, feature_description: str, code_overview: str
+    ) -> Optional[list[str]]:
         """Use LLM to generate clarifying questions or determine readiness.
 
         Returns:
@@ -142,10 +141,12 @@ class FeatureInterviewer:
 
     def record_response(self, question: str, answer: str):
         """Record a question-answer pair from the interview."""
-        self.responses.append({
-            "question": question,
-            "answer": answer,
-        })
+        self.responses.append(
+            {
+                "question": question,
+                "answer": answer,
+            }
+        )
 
     def build_spec(self, feature_description: str) -> dict:
         """Construct a ProjectSpec dict from the interview data."""
@@ -155,11 +156,16 @@ class FeatureInterviewer:
         parent_tech_stack = project.get("tech_stack", [])
 
         # Derive spec name from parent project and feature
-        safe_feature = re.sub(r'[^a-z0-9-]', '', feature_description.lower().replace(' ', '-'))[:50]
+        safe_feature = re.sub(
+            r"[^a-z0-9-]", "", feature_description.lower().replace(" ", "-")
+        )[:50]
+        safe_feature = safe_feature or "unnamed-feature"
         if self.selected_project is None:
             spec_name = safe_feature
         else:
-            safe_parent = re.sub(r'[^a-z0-9-]', '', parent_name.lower().replace(' ', '-'))
+            safe_parent = re.sub(
+                r"[^a-z0-9-]", "", parent_name.lower().replace(" ", "-")
+            )
             spec_name = f"{safe_parent}-{safe_feature}"
 
         # Collect constraints from interview responses

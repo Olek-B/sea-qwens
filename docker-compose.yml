@@ -17,6 +17,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
 
   chromadb:
     image: ghcr.io/chroma-core/chroma:0.5.23
@@ -55,21 +56,12 @@ services:
         condition: service_healthy
     networks:
       - sea-qwens-network
-
-  manager:
-    build:
-      context: .
-      dockerfile: services/manager/Dockerfile
-    container_name: sea-qwens-manager
-    ports:
-      - "8006:8006"
-    environment:
-      - LIBRARIAN_URL=http://librarian:8001
-    depends_on:
-      librarian:
-        condition: service_started
-    networks:
-      - sea-qwens-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
 
   atomizer:
     build:
@@ -82,7 +74,7 @@ services:
       - LIBRARIAN_URL=http://librarian:8001
     depends_on:
       librarian:
-        condition: service_started
+        condition: service_healthy
     networks:
       - sea-qwens-network
 
@@ -98,7 +90,7 @@ services:
       - WORKER_URL=http://worker:8004
     depends_on:
       librarian:
-        condition: service_started
+        condition: service_healthy
     networks:
       - sea-qwens-network
 
@@ -110,13 +102,13 @@ services:
     ports:
       - "8004:8004"
     environment:
-      - KANBAN_URL=http://kanban:8003
+      - LIBRARIAN_URL=http://librarian:8001
     depends_on:
       kanban:
         condition: service_started
     volumes:
-      - ./worktrees:/app/worktrees
-      - ${SEA_QWENS_CONFIG_DIR:-~/.config/sea-qwens}/adapters:/app/adapters:ro
+      - .:/app
+      - ./configs/adapters:/app/adapters:ro
     networks:
       - sea-qwens-network
 
@@ -128,12 +120,13 @@ services:
     ports:
       - "8005:8005"
     environment:
+      - LIBRARIAN_URL=http://librarian:8001
       - WORKER_URL=http://worker:8004
     depends_on:
       worker:
         condition: service_started
     volumes:
-      - ./worktrees:/app/worktrees
+      - .:/app
     networks:
       - sea-qwens-network
 

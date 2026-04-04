@@ -1,0 +1,60 @@
+# .dockerignore
+
+# Version control
+.git/
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Environment files
+.env
+.env.local
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Worktrees (generated, mounted as volume)
+worktrees/
+
+# Documentation
+docs/
+README.md
+BUGFIX_REPORT.md
+
+# Scripts
+scripts/
+
+# Tests (not needed in production images)
+tests/
+**/tests/
+**/test_*.py
+**/*_test.py

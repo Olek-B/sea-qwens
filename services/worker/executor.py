@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ExecutionResult:
     """Result of a task execution by a worker agent."""
+
     success: bool
     task_id: str
     output: str = ""
@@ -28,7 +29,9 @@ class TaskExecutor:
     """Execute coding tasks using CLI tools in isolated worktrees."""
 
     def __init__(self, adapters_base: str | None = None):
-        self._adapters_base = adapters_base or os.getenv("ADAPTERS_BASE_DIR", "/app/adapters")
+        self._adapters_base = adapters_base or os.getenv(
+            "ADAPTERS_BASE_DIR", "/app/adapters"
+        )
 
     def _resolve_adapter(self, adapter: str, tool_name: str) -> Optional[str]:
         """Resolve the adapter script path.
@@ -91,11 +94,16 @@ class TaskExecutor:
                 if tool_id:
                     cmd.extend(["--tool_id", tool_id])
             else:
-                logger.info("No adapter found for task %s, falling back to raw command", task.task_id)
+                logger.info(
+                    "No adapter found for task %s, falling back to raw command",
+                    task.task_id,
+                )
                 cmd = [
                     *shlex.split(tool_command),
-                    "--prompt", prompt,
-                    "--cwd", str(wt_path),
+                    "--prompt",
+                    prompt,
+                    "--cwd",
+                    str(wt_path),
                 ]
 
             result = subprocess.run(
@@ -154,12 +162,16 @@ class TaskExecutor:
 
     def _build_prompt(self, title: str, contract: dict) -> str:
         """Build prompt for the CLI tool with code graph tool instructions."""
+        try:
+            contract_json = json.dumps(contract, indent=2, default=str)
+        except (TypeError, ValueError):
+            contract_json = str(contract)
         prompt = f"""Implement the following task:
 
 {title}
 
 Requirements (contract):
-{json.dumps(contract, indent=2)}
+{contract_json}
 
 ## Code Knowledge Graph Tools
 
@@ -210,6 +222,7 @@ You have access to a code knowledge graph. Instead of reading files, use these t
                 capture_output=True,
                 text=True,
                 timeout=120,
+                env=os.environ.copy(),
             )
 
             output = result.stdout + result.stderr
@@ -249,7 +262,8 @@ You have access to a code knowledge graph. Instead of reading files, use these t
             "rate limit",
             "quota exceeded",
             "too many requests",
-            "429",
+            "status code 429",
+            "http 429",
             "resource exhausted",
             "rate_limited",
         ]

@@ -1,6 +1,9 @@
 # services/kanban/tool_manager.py
 from typing import Optional
+import logging
 import requests
+
+logger = logging.getLogger(__name__)
 
 
 class ToolSelectionResult:
@@ -28,7 +31,8 @@ class ToolManager:
     def _select_best_from_list(self, tools: list[dict]) -> Optional[dict]:
         """Select the best tool from a list"""
         healthy = [
-            t for t in tools
+            t
+            for t in tools
             if t.get("health_status") == "HEALTHY"
             and t.get("requests_today", 0) < t.get("daily_limit", 1000)
         ]
@@ -38,7 +42,9 @@ class ToolManager:
 
         return min(healthy, key=lambda t: t.get("usage_count", 0))
 
-    def select_tool(self, task_capabilities: Optional[list[str]] = None) -> Optional[ToolSelectionResult]:
+    def select_tool(
+        self, task_capabilities: Optional[list[str]] = None
+    ) -> Optional[ToolSelectionResult]:
         """
         Select the best tool for a task.
 
@@ -52,7 +58,8 @@ class ToolManager:
 
         if task_capabilities:
             matching = [
-                t for t in tools
+                t
+                for t in tools
                 if any(cap in t.get("capabilities", []) for cap in task_capabilities)
             ]
             if matching:
@@ -60,15 +67,16 @@ class ToolManager:
                 if selected:
                     return ToolSelectionResult(
                         tool=selected,
-                        reason=f"Matched capabilities: {task_capabilities}"
+                        reason=f"Matched capabilities: {task_capabilities}",
                     )
+            logger.warning(
+                "No tools matched capabilities %s, falling back to any healthy tool",
+                task_capabilities,
+            )
 
         selected = self._select_best_from_list(tools)
         if selected:
-            return ToolSelectionResult(
-                tool=selected,
-                reason="Least-used healthy tool"
-            )
+            return ToolSelectionResult(tool=selected, reason="Least-used healthy tool")
 
         return None
 
@@ -77,7 +85,7 @@ class ToolManager:
         try:
             requests.put(
                 f"{self.librarian_url}/tools/{tool_name}/status",
-                json={"health_status": "RATE_LIMITED"}
+                json={"health_status": "RATE_LIMITED"},
             )
         except requests.exceptions.RequestException:
             pass
