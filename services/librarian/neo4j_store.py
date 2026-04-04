@@ -12,15 +12,21 @@ class Neo4jStore:
 
     def __init__(self):
         self.driver = GraphDatabase.driver(
-            settings.NEO4J_URI,
-            auth=(settings.NEO4J_USER, settings.NEO4J_PASSWORD)
+            settings.NEO4J_URI, auth=(settings.NEO4J_USER, settings.NEO4J_PASSWORD)
         )
 
     def close(self):
         """Close the Neo4j driver connection"""
         self.driver.close()
 
-    def create_project_spec(self, name: str, tech_stack: list[str], features: list[str], parent_project: Optional[str] = None, constraints: Optional[list[str]] = None) -> dict:
+    def create_project_spec(
+        self,
+        name: str,
+        tech_stack: list[str],
+        features: list[str],
+        parent_project: Optional[str] = None,
+        constraints: Optional[list[str]] = None,
+    ) -> dict:
         """Create a new ProjectSpec node in Neo4j"""
         spec_id = str(uuid.uuid4())
         with self.driver.session() as session:
@@ -37,8 +43,12 @@ class Neo4jStore:
                 })
                 RETURN p
                 """,
-                id=spec_id, name=name, tech_stack=tech_stack, features=features,
-                parent_project=parent_project, constraints=constraints or []
+                id=spec_id,
+                name=name,
+                tech_stack=tech_stack,
+                features=features,
+                parent_project=parent_project,
+                constraints=constraints or [],
             )
             record = result.single()
             return dict(record["p"])
@@ -46,10 +56,7 @@ class Neo4jStore:
     def get_project_spec(self, spec_id: str) -> Optional[dict]:
         """Retrieve a ProjectSpec by ID"""
         with self.driver.session() as session:
-            result = session.run(
-                "MATCH (p:ProjectSpec {id: $id}) RETURN p",
-                id=spec_id
-            )
+            result = session.run("MATCH (p:ProjectSpec {id: $id}) RETURN p", id=spec_id)
             record = result.single()
             if record:
                 return dict(record["p"])
@@ -58,7 +65,9 @@ class Neo4jStore:
     def list_all_project_specs(self) -> list[dict]:
         """Retrieve all ProjectSpec nodes from Neo4j."""
         with self.driver.session() as session:
-            result = session.run("MATCH (p:ProjectSpec) RETURN p ORDER BY p.created_at DESC")
+            result = session.run(
+                "MATCH (p:ProjectSpec) RETURN p ORDER BY p.created_at DESC"
+            )
             return [dict(record["p"]) for record in result]
 
     def create_task(self, task_data: dict) -> dict:
@@ -67,7 +76,7 @@ class Neo4jStore:
         task_data = task_data.copy()
         if isinstance(task_data.get("contract"), dict):
             task_data["contract"] = json.dumps(task_data["contract"])
-        
+
         with self.driver.session() as session:
             result = session.run(
                 """
@@ -81,7 +90,7 @@ class Neo4jStore:
                 })
                 RETURN t
                 """,
-                **task_data
+                **task_data,
             )
             record = result.single()
             task = dict(record["t"])
@@ -119,7 +128,9 @@ class Neo4jStore:
                 tasks.append(task)
             return tasks
 
-    def update_task_status(self, task_id: str, status: str, metadata: Optional[dict] = None) -> Optional[dict]:
+    def update_task_status(
+        self, task_id: str, status: str, metadata: Optional[dict] = None
+    ) -> Optional[dict]:
         """Update a task's status"""
         with self.driver.session() as session:
             result = session.run(
@@ -128,7 +139,8 @@ class Neo4jStore:
                 SET t.status = $status
                 RETURN t
                 """,
-                task_id=task_id, status=status
+                task_id=task_id,
+                status=status,
             )
             record = result.single()
             if record:
@@ -150,7 +162,7 @@ class Neo4jStore:
                 })
                 RETURN t
                 """,
-                **tool_data
+                **tool_data,
             )
             record = result.single()
             return dict(record["t"])
@@ -189,14 +201,16 @@ class Neo4jStore:
                 SET t.last_used = datetime()
                 RETURN t
                 """,
-                name=tool_name
+                name=tool_name,
             )
             record = result.single()
             if record:
                 return dict(record["t"])
             return None
 
-    def create_dependency_relationship(self, from_task_id: str, to_task_id: str) -> bool:
+    def create_dependency_relationship(
+        self, from_task_id: str, to_task_id: str
+    ) -> bool:
         """Create a DEPENDS_ON relationship between two tasks.
 
         Args:
@@ -212,13 +226,13 @@ class Neo4jStore:
                 MATCH (from:Task {task_id: $from_id})
                 MATCH (to:Task {task_id: $to_id})
                 CREATE (from)-[:DEPENDS_ON]->(to)
-                RETURN true
+                RETURN true AS created
                 """,
                 from_id=from_task_id,
-                to_id=to_task_id
+                to_id=to_task_id,
             )
             record = result.single()
-            return record is not None and record["true"] is not None
+            return record is not None and record["created"] is not None
 
     # --- Code Graph CRUD Operations ---
 
@@ -227,7 +241,9 @@ class Neo4jStore:
         with self.driver.session() as session:
             session.run(
                 "MERGE (f:File {path: $path}) SET f.language = $language, f.content = $content, f.last_updated = datetime()",
-                path=code_file.path, language=code_file.language, content=code_file.content,
+                path=code_file.path,
+                language=code_file.language,
+                content=code_file.content,
             )
 
     def upsert_function(self, func: CodeFunction):
@@ -242,9 +258,15 @@ class Neo4jStore:
                     fn.line_start = $line_start, fn.line_end = $line_end
                 MERGE (f)-[:CONTAINS]->(fn)
                 """,
-                name=func.name, file_path=func.file_path, body=func.body,
-                signature=func.signature, docstring=func.docstring, is_method=func.is_method,
-                parent_class=func.parent_class, line_start=func.line_start, line_end=func.line_end,
+                name=func.name,
+                file_path=func.file_path,
+                body=func.body,
+                signature=func.signature,
+                docstring=func.docstring,
+                is_method=func.is_method,
+                parent_class=func.parent_class,
+                line_start=func.line_start,
+                line_end=func.line_end,
             )
 
     def upsert_class(self, cls: CodeClass):
@@ -258,9 +280,13 @@ class Neo4jStore:
                     c.line_start = $line_start, c.line_end = $line_end
                 MERGE (f)-[:CONTAINS]->(c)
                 """,
-                name=cls.name, file_path=cls.file_path, body=cls.body,
-                docstring=cls.docstring, bases=cls.bases,
-                line_start=cls.line_start, line_end=cls.line_end,
+                name=cls.name,
+                file_path=cls.file_path,
+                body=cls.body,
+                docstring=cls.docstring,
+                bases=cls.bases,
+                line_start=cls.line_start,
+                line_end=cls.line_end,
             )
 
     def create_call_relationship(self, caller_name: str, callee_name: str):
@@ -268,7 +294,8 @@ class Neo4jStore:
         with self.driver.session() as session:
             session.run(
                 "MATCH (caller:Function {name: $caller}) MATCH (callee:Function {name: $callee}) MERGE (caller)-[:CALLS]->(callee)",
-                caller=caller_name, callee=callee_name,
+                caller=caller_name,
+                callee=callee_name,
             )
 
     def create_inherits_relationship(self, child_name: str, parent_name: str):
@@ -276,7 +303,8 @@ class Neo4jStore:
         with self.driver.session() as session:
             session.run(
                 "MATCH (child:Class {name: $child}) MATCH (parent:Class {name: $parent}) MERGE (child)-[:INHERITS]->(parent)",
-                child=child_name, parent=parent_name,
+                child=child_name,
+                parent=parent_name,
             )
 
     def get_function_by_name(self, name: str) -> Optional[dict]:

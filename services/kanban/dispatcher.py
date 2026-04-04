@@ -24,7 +24,7 @@ class Dispatcher:
     def __init__(
         self,
         librarian_url: str = "http://localhost:8001",
-        worker_url: str = "http://localhost:8004"
+        worker_url: str = "http://localhost:8004",
     ):
         self.librarian_url = librarian_url
         self.worker_url = worker_url
@@ -33,7 +33,7 @@ class Dispatcher:
     def get_ready_tasks(self) -> list[dict]:
         """Fetch ready tasks from Librarian"""
         try:
-            response = requests.get(f"{self.librarian_url}/tasks/ready")
+            response = requests.get(f"{self.librarian_url}/tasks/ready", timeout=10)
             if response.status_code == 200:
                 return response.json()
             return []
@@ -48,7 +48,7 @@ class Dispatcher:
                 success=False,
                 task_id=task.get("task_id", "unknown"),
                 tool_name="",
-                message="No healthy tools available"
+                message="No healthy tools available",
             )
 
         tool = selection.tool
@@ -61,7 +61,8 @@ class Dispatcher:
             requests.post(
                 f"{self.librarian_url}/tasks/update",
                 params={"task_id": task["task_id"]},
-                json={"status": "IN_PROGRESS", "tool_id": tool_name}
+                json={"status": "IN_PROGRESS", "tool_id": tool_name},
+                timeout=10,
             )
         except requests.exceptions.RequestException:
             pass  # Best effort
@@ -78,7 +79,8 @@ class Dispatcher:
                     "tool_id": tool_name,
                     "tool_command": tool_command,
                     "adapter": tool_adapter or None,
-                }
+                },
+                timeout=30,
             )
 
             # Handle 429 rate limit
@@ -88,7 +90,7 @@ class Dispatcher:
                     success=False,
                     task_id=task["task_id"],
                     tool_name=tool_name,
-                    message="Rate limit hit, tool rotated and task re-queued"
+                    message="Rate limit hit, tool rotated and task re-queued",
                 )
 
             if response.status_code in (200, 202):
@@ -96,21 +98,25 @@ class Dispatcher:
                     success=True,
                     task_id=task["task_id"],
                     tool_name=tool_name,
-                    message=f"Dispatched to worker with tool {tool_name}"
+                    message=f"Dispatched to worker with tool {tool_name}",
                 )
             else:
+                # Re-queue on worker rejection
+                self._requeue_task(task["task_id"])
                 return DispatchResult(
                     success=False,
                     task_id=task["task_id"],
                     tool_name=tool_name,
-                    message=f"Worker rejected: {response.text}"
+                    message=f"Worker rejected: {response.text}",
                 )
         except requests.exceptions.RequestException as e:
+            # Re-queue on worker unavailability
+            self._requeue_task(task["task_id"])
             return DispatchResult(
                 success=False,
                 task_id=task["task_id"],
                 tool_name=tool_name,
-                message=f"Worker unavailable: {str(e)}"
+                message=f"Worker unavailable: {str(e)}",
             )
 
     def poll_and_dispatch(self) -> int:
@@ -128,17 +134,20 @@ class Dispatcher:
     def handle_rate_limit(self, task: dict, failed_tool: str):
         """Handle 429 rate limit by rotating tool and re-queuing"""
         logger.warning(
-            f"Rate limit hit for tool {failed_tool}, "
-            f"re-queuing task {task['task_id']}"
+            f"Rate limit hit for tool {failed_tool}, re-queuing task {task['task_id']}"
         )
 
         self.tool_manager.mark_tool_rate_limited(failed_tool)
+        self._requeue_task(task["task_id"])
 
+    def _requeue_task(self, task_id: str):
+        """Re-queue a task to PENDING status (internal helper)."""
         try:
             requests.post(
                 f"{self.librarian_url}/tasks/update",
-                params={"task_id": task["task_id"]},
-                json={"status": "PENDING"}
+                params={"task_id": task_id},
+                json={"status": "PENDING"},
+                timeout=10,
             )
         except requests.exceptions.RequestException as e:
-            logger.error(f"Failed to re-queue task: {e}")
+            logger.error(f"Failed to re-queue task {task_id}: {e}")

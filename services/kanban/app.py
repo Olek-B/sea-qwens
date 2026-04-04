@@ -12,25 +12,29 @@ LIBRARIAN_URL = os.getenv("LIBRARIAN_URL", "http://localhost:8001")
 WORKER_URL = os.getenv("WORKER_URL", "http://localhost:8004")
 
 dispatcher = Dispatcher(librarian_url=LIBRARIAN_URL, worker_url=WORKER_URL)
-scheduler = BackgroundScheduler()
+scheduler: BackgroundScheduler | None = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup and shutdown events using lifespan context manager"""
+    global scheduler
     # Startup
+    scheduler = BackgroundScheduler()
     scheduler.add_job(
         poll_and_dispatch_job,
         trigger="interval",
         seconds=30,  # Poll every 30 seconds
         id="poll_and_dispatch",
-        replace_existing=True
+        replace_existing=True,
     )
     scheduler.start()
     logger.info("Kanban dispatcher started (30s polling)")
     yield
     # Shutdown
-    scheduler.shutdown()
+    if scheduler is not None:
+        scheduler.shutdown(wait=True)
+        logger.info("Kanban dispatcher stopped")
 
 
 def poll_and_dispatch_job():
@@ -48,7 +52,10 @@ app = FastAPI(title="Sea Qwens Kanban", lifespan=lifespan)
 
 @app.get("/health")
 def health_check():
-    return {"status": "healthy", "scheduler_running": scheduler.running}
+    return {
+        "status": "healthy",
+        "scheduler_running": scheduler.running if scheduler else False,
+    }
 
 
 @app.post("/dispatch/now")
@@ -61,7 +68,4 @@ def dispatch_now():
 @app.get("/status")
 def get_status():
     """Get dispatcher status"""
-    return {
-        "scheduler_running": scheduler.running,
-        "polling_interval": "30s"
-    }
+    return {"scheduler_running": scheduler.running, "polling_interval": "30s"}

@@ -32,15 +32,25 @@ app = FastAPI(
 _validator: Optional[ContractValidator] = None
 _merger: Optional[GitMerger] = None
 
-# Service URLs (overridable for tests)
-_LIBRARIAN_URL = "http://localhost:8001"
-_WORKER_URL = "http://localhost:8004"
-_REPO_ROOT = subprocess.run(
-    ["git", "rev-parse", "--show-toplevel"],
-    capture_output=True,
-    text=True,
-    cwd=os.path.dirname(__file__),
-).stdout.strip() or os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+# Service URLs (overridable via env vars for Docker)
+_LIBRARIAN_URL = os.getenv("LIBRARIAN_URL", "http://localhost:8001")
+_WORKER_URL = os.getenv("WORKER_URL", "http://localhost:8004")
+
+
+def _get_repo_root() -> str:
+    """Discover the git repo root, falling back gracefully."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            text=True,
+            cwd=os.path.dirname(__file__),
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return result.stdout.strip()
+    except Exception:
+        pass
+    return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 
 def get_validator() -> ContractValidator:
@@ -53,7 +63,7 @@ def get_validator() -> ContractValidator:
 def get_merger() -> GitMerger:
     global _merger
     if _merger is None:
-        _merger = GitMerger(_REPO_ROOT)
+        _merger = GitMerger(_get_repo_root())
     return _merger
 
 

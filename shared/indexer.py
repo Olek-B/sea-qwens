@@ -26,7 +26,8 @@ class CodeIndexer:
 
     def __init__(self):
         self.PY_LANGUAGE = Language(tspython.language())
-        self.parser = Parser(self.PY_LANGUAGE)
+        self.parser = Parser()
+        self.parser.language = self.PY_LANGUAGE
 
     def index_file(self, path: str, content: str, language: str) -> IndexResult:
         """Index a single source file."""
@@ -43,10 +44,17 @@ class CodeIndexer:
         calls: list[CallRelation] = []
         self._extract_definitions(root, code_file.path, classes, functions)
         self._extract_calls(root, functions, calls)
-        return IndexResult(file=code_file, classes=classes, functions=functions, calls=calls)
+        return IndexResult(
+            file=code_file, classes=classes, functions=functions, calls=calls
+        )
 
     def _extract_definitions(
-        self, node, file_path: str, classes: list, functions: list, parent_class: Optional[str] = None
+        self,
+        node,
+        file_path: str,
+        classes: list,
+        functions: list,
+        parent_class: Optional[str] = None,
     ):
         if node.type == "class_definition":
             cls = self._extract_class(node, file_path)
@@ -55,13 +63,24 @@ class CodeIndexer:
             if body:
                 for child in body.children:
                     if child.type == "function_definition":
-                        func = self._extract_function(child, file_path, parent_class=cls.name)
+                        func = self._extract_function(
+                            child, file_path, parent_class=cls.name
+                        )
                         functions.append(func)
+                    elif child.type == "class_definition":
+                        # Recurse into nested classes, resetting parent_class
+                        # so the nested class's methods get the correct parent.
+                        self._extract_definitions(
+                            child, file_path, classes, functions, parent_class=None
+                        )
+                        continue
         elif node.type == "function_definition":
             func = self._extract_function(node, file_path, parent_class)
             functions.append(func)
         for child in node.children:
-            self._extract_definitions(child, file_path, classes, functions, parent_class)
+            self._extract_definitions(
+                child, file_path, classes, functions, parent_class
+            )
 
     def _extract_class(self, node, file_path: str) -> CodeClass:
         name_node = node.child_by_field_name("name")
@@ -125,7 +144,12 @@ class CodeIndexer:
             func_node = node.child_by_field_name("function")
             if func_node:
                 callee = func_node.text.decode("utf8")
-                func_name = callee.split(".")[-1]
+                # Preserve full qualified name for method calls (e.g. self.foo)
+                # so callers can distinguish instance methods from free functions.
+                if callee.startswith("self."):
+                    func_name = callee  # keep "self.method_name"
+                else:
+                    func_name = callee.split(".")[-1]
                 caller = self._find_enclosing_function(node, functions)
                 if caller:
                     calls.append(CallRelation(caller=caller, callee=func_name))

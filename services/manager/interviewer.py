@@ -22,25 +22,20 @@ class Interviewer:
     """LLM-assisted project requirements interviewer"""
 
     QUESTIONS = [
+        InterviewQuestion(text="What's the name of your project?", category="overview"),
         InterviewQuestion(
-            text="What's the name of your project?",
-            category="overview"
-        ),
-        InterviewQuestion(
-            text="In one sentence, what does your project do?",
-            category="overview"
+            text="In one sentence, what does your project do?", category="overview"
         ),
         InterviewQuestion(
             text="What tech stack do you want to use? (e.g., FastAPI, React, PostgreSQL)",
-            category="tech_stack"
+            category="tech_stack",
         ),
         InterviewQuestion(
             text="What are the main features? (comma-separated list)",
-            category="features"
+            category="features",
         ),
         InterviewQuestion(
-            text="Any specific requirements or constraints?",
-            category="constraints"
+            text="Any specific requirements or constraints?", category="constraints"
         ),
     ]
 
@@ -77,11 +72,13 @@ class Interviewer:
         return self.QUESTIONS[self.current_question_idx]
 
     def record_response(self, answer: str, category: str):
-        self.responses.append({
-            "question_idx": self.current_question_idx,
-            "category": category,
-            "answer": answer
-        })
+        self.responses.append(
+            {
+                "question_idx": self.current_question_idx,
+                "category": category,
+                "answer": answer,
+            }
+        )
         self.questions_asked += 1
         self.current_question_idx += 1
 
@@ -93,7 +90,8 @@ class Interviewer:
         spec = {
             "name": "",
             "tech_stack": [],
-            "features": []
+            "features": [],
+            "constraints": [],
         }
 
         for response in self.responses:
@@ -101,12 +99,12 @@ class Interviewer:
                 if response["question_idx"] == 0:
                     spec["name"] = response["answer"]
             elif response["category"] == "tech_stack":
-                spec["tech_stack"] = [
-                    s.strip() for s in response["answer"].split(",")
-                ]
+                spec["tech_stack"] = [s.strip() for s in response["answer"].split(",")]
             elif response["category"] == "features":
-                spec["features"] = [
-                    s.strip() for s in response["answer"].split(",")
+                spec["features"] = [s.strip() for s in response["answer"].split(",")]
+            elif response["category"] == "constraints":
+                spec["constraints"] = [
+                    s.strip() for s in response["answer"].split(",") if s.strip()
                 ]
 
         return spec

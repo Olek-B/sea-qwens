@@ -8,7 +8,7 @@ import sys
 import os
 
 # Add parent directory to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from shared.models import ProjectSpec, Task, TaskStatus, Tool
 from shared.config import load_tools_config
@@ -18,28 +18,39 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Seed tools from user config on startup."""
+    """Seed tools from user config on startup, cleanup on shutdown."""
     _seed_tools()
     yield
+    # Cleanup connections on shutdown
+    global _neo4j_store
+    if _neo4j_store is not None:
+        try:
+            _neo4j_store.close()
+        except Exception as e:
+            logger.warning(f"Error closing Neo4j connection: {e}")
+        _neo4j_store = None
 
 
 def _seed_tools():
     """Load tools from user config and create them in Neo4j if they don't exist."""
     # Resolve repo root for fallback config loading
-    repo_root = os.path.join(os.path.dirname(__file__), '..', '..')
+    repo_root = os.path.join(os.path.dirname(__file__), "..", "..")
 
     tools_config = load_tools_config(repo_root=repo_root)
     if tools_config is None:
         return
 
-    neo4j = get_neo4j_store()
-    existing_tools = neo4j.get_all_tools()
-    existing_names = {t["name"] for t in existing_tools}
+    try:
+        neo4j = get_neo4j_store()
+        existing_tools = neo4j.get_all_tools()
+        existing_names = {t["name"] for t in existing_tools}
 
-    for tool_data in tools_config:
-        if tool_data["name"] not in existing_names:
-            neo4j.create_tool(tool_data)
-            logger.info(f"Seeded tool: {tool_data['name']}")
+        for tool_data in tools_config:
+            if tool_data["name"] not in existing_names:
+                neo4j.create_tool(tool_data)
+                logger.info(f"Seeded tool: {tool_data['name']}")
+    except Exception as e:
+        logger.warning(f"Failed to seed tools (will retry on next request): {e}")
 
 
 app = FastAPI(title="Sea Qwens Librarian", lifespan=lifespan)
@@ -54,6 +65,7 @@ def get_neo4j_store():
     global _neo4j_store
     if _neo4j_store is None:
         from services.librarian.neo4j_store import Neo4jStore
+
         _neo4j_store = Neo4jStore()
     return _neo4j_store
 
@@ -63,12 +75,14 @@ def get_chroma_store():
     global _chroma_store
     if _chroma_store is None:
         from services.librarian.chroma_store import ChromaStore
+
         _chroma_store = ChromaStore()
     return _chroma_store
 
 
 class ProjectSpecInput(BaseModel):
     """Input model for creating a ProjectSpec"""
+
     name: str
     tech_stack: list[str]
     features: list[str]
@@ -78,12 +92,14 @@ class ProjectSpecInput(BaseModel):
 
 class TaskUpdateInput(BaseModel):
     """Input model for updating a task"""
+
     status: str
     metadata: Optional[dict] = None
 
 
 class IngestInput(BaseModel):
     """Input model for ingesting documents"""
+
     uid: str
     content: str
     metadata: Optional[dict] = None
@@ -91,6 +107,7 @@ class IngestInput(BaseModel):
 
 class TaskInput(BaseModel):
     """Input model for creating a task"""
+
     task_id: str
     title: str
     status: str = "PENDING"
@@ -157,14 +174,14 @@ def create_task(task: TaskInput):
         "status": task.status,
         "dependencies": task.dependencies,
         "contract": task.contract,
-        "tool_id": task.tool_id
+        "tool_id": task.tool_id,
     }
     created_task = neo4j.create_task(task_data)
-    
+
     # Create dependency relationships
     for dep_id in task.dependencies:
         neo4j.create_dependency_relationship(task.task_id, dep_id)
-    
+
     return created_task
 
 
@@ -173,7 +190,7 @@ def create_tasks_batch(tasks: list[TaskInput]):
     """Create multiple tasks with their dependencies (for Atomizer)"""
     neo4j = get_neo4j_store()
     created_tasks = []
-    
+
     for task in tasks:
         task_data = {
             "task_id": task.task_id,
@@ -181,19 +198,16 @@ def create_tasks_batch(tasks: list[TaskInput]):
             "status": task.status,
             "dependencies": task.dependencies,
             "contract": task.contract,
-            "tool_id": task.tool_id
+            "tool_id": task.tool_id,
         }
         created_task = neo4j.create_task(task_data)
         created_tasks.append(created_task)
-        
+
         # Create dependency relationships
         for dep_id in task.dependencies:
             neo4j.create_dependency_relationship(task.task_id, dep_id)
-    
-    return {
-        "count": len(created_tasks),
-        "tasks": created_tasks
-    }
+
+    return {"count": len(created_tasks), "tasks": created_tasks}
 
 
 @app.post("/ingest")
@@ -253,7 +267,7 @@ def update_tool_status(tool_name: str, update: ToolStatusUpdate):
             RETURN t
             """,
             name=tool_name,
-            health_status=update.health_status
+            health_status=update.health_status,
         )
         record = result.single()
         if not record:
@@ -263,8 +277,12 @@ def update_tool_status(tool_name: str, update: ToolStatusUpdate):
 
 # ==================== Code Knowledge Graph Endpoints ====================
 
+
 @app.get("/code/search")
-def search_code(q: str = Query(..., description="Search query"), type: str = Query("function")):
+def search_code(
+    q: str = Query(..., description="Search query"),
+    entity_type: str = Query("function", alias="type"),
+):
     """Search code semantically via ChromaDB and by name via Neo4j."""
     store = get_chroma_store()
     vector_results = store.search_code(q)
@@ -316,12 +334,15 @@ def get_class(name: str):
     with neo4j_store.driver.session() as session:
         result = session.run(
             "MATCH (c:Class {name: $name}) OPTIONAL MATCH (c)-[:CONTAINS]->(m:Function) RETURN c, collect(m) as methods",
-            name=name
+            name=name,
         )
         record = result.single()
         if not record:
             raise HTTPException(status_code=404, detail=f"Class '{name}' not found")
-        return {"class": dict(record["c"]), "methods": [dict(m) for m in record["methods"] if m]}
+        return {
+            "class": dict(record["c"]),
+            "methods": [dict(m) for m in record["methods"] if m],
+        }
 
 
 @app.get("/code/file/{path:path}")
@@ -337,6 +358,7 @@ def get_file_content(path: str):
 
 
 # ==================== Post-Execution Indexer ====================
+
 
 class FileContent(BaseModel):
     path: str
@@ -356,6 +378,7 @@ def index_updated(body: IndexUpdatedInput):
     the filesystem.
     """
     from services.librarian.post_indexer import PostIndexer
+
     indexer = PostIndexer(get_neo4j_store(), get_chroma_store())
     file_dicts = [f.model_dump() for f in body.files]
     result = indexer.index_files(file_dicts)
