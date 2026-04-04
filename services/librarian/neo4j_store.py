@@ -137,6 +137,12 @@ class Neo4jStore:
 
     def create_tool(self, tool_data: dict) -> dict:
         """Create a new Tool node in Neo4j"""
+        # Provide defaults for missing fields
+        tool_data.setdefault("usage_count", 0)
+        tool_data.setdefault("requests_today", 0)
+        tool_data.setdefault("daily_limit", 1000)
+        tool_data.setdefault("health_status", "HEALTHY")
+        
         with self.driver.session() as session:
             result = session.run(
                 """

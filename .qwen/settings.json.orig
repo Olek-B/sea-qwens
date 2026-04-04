@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "code-graph": {
+      "command": "code-graph-mcp",
+      "args": [
+        "--db-path", "/home/loki/.config/.code-graph.db",
+        "--watch-dir", "/mnt/mydata/ideas/sea-qwens-dev"
+      ]
+    }
+  }
+}
