@@ -10,7 +10,7 @@ Endpoints:
 import logging
 import os
 import subprocess
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 import requests
@@ -37,7 +37,9 @@ _LIBRARIAN_URL = "http://localhost:8001"
 _WORKER_URL = "http://localhost:8004"
 _REPO_ROOT = subprocess.run(
     ["git", "rev-parse", "--show-toplevel"],
-    capture_output=True, text=True, cwd=os.path.dirname(__file__)
+    capture_output=True,
+    text=True,
+    cwd=os.path.dirname(__file__),
 ).stdout.strip() or os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 
@@ -56,6 +58,7 @@ def get_merger() -> GitMerger:
 
 
 # ─── Request / Response Models ────────────────────────────────────────────────
+
 
 class ValidateRequest(BaseModel):
     task_id: str
@@ -91,6 +94,7 @@ class HealthResponse(BaseModel):
 
 
 # ─── Endpoints ────────────────────────────────────────────────────────────────
+
 
 @app.post("/validate", response_model=ValidateResponse)
 async def validate_task(request: ValidateRequest):
@@ -200,11 +204,12 @@ async def health_check():
     return HealthResponse(
         status="healthy",
         service="sea-qwens-tester",
-        timestamp=datetime.utcnow().isoformat(),
+        timestamp=datetime.now(timezone.utc).isoformat(),
     )
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
+
 
 def _update_librarian_status(task_id: str, status: str) -> None:
     """Update a task's status in the Librarian service (best-effort)."""

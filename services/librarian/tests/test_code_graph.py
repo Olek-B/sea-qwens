@@ -4,12 +4,12 @@ import pytest
 from unittest.mock import MagicMock, patch
 import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 from shared.models import CodeFile, CodeFunction, CodeClass
 
 
 class TestCodeGraphOperations:
-
     @pytest.fixture
     def mock_session(self):
         session = MagicMock()
@@ -25,9 +25,10 @@ class TestCodeGraphOperations:
 
     @pytest.fixture
     def store(self, mock_driver):
-        with patch('neo4j.GraphDatabase') as mock_gd:
+        with patch("services.librarian.neo4j_store.GraphDatabase") as mock_gd:
             mock_gd.driver.return_value = mock_driver
             from services.librarian.neo4j_store import Neo4jStore
+
             store = Neo4jStore()
             store.driver = mock_driver
             return store
@@ -38,12 +39,24 @@ class TestCodeGraphOperations:
         mock_session.run.assert_called()
 
     def test_upsert_function(self, store, mock_session):
-        func = CodeFunction(name="test_func", file_path="test.py", line_start=1, line_end=5, body="def test_func(): pass")
+        func = CodeFunction(
+            name="test_func",
+            file_path="test.py",
+            line_start=1,
+            line_end=5,
+            body="def test_func(): pass",
+        )
         store.upsert_function(func)
         mock_session.run.assert_called()
 
     def test_upsert_class(self, store, mock_session):
-        cls = CodeClass(name="TestClass", file_path="test.py", line_start=1, line_end=10, body="class TestClass: pass")
+        cls = CodeClass(
+            name="TestClass",
+            file_path="test.py",
+            line_start=1,
+            line_end=10,
+            body="class TestClass: pass",
+        )
         store.upsert_class(cls)
         mock_session.run.assert_called()
 
@@ -52,13 +65,25 @@ class TestCodeGraphOperations:
         mock_session.run.assert_called()
 
     def test_get_function_by_name(self, store, mock_session):
-        mock_session.run.return_value.single.return_value = {"f": {"name": "test_func", "body": "def test_func(): pass", "file_path": "test.py", "signature": "def test_func(): pass", "docstring": "", "is_method": False}}
+        mock_session.run.return_value.single.return_value = {
+            "f": {
+                "name": "test_func",
+                "body": "def test_func(): pass",
+                "file_path": "test.py",
+                "signature": "def test_func(): pass",
+                "docstring": "",
+                "is_method": False,
+            }
+        }
         result = store.get_function_by_name("test_func")
         assert result is not None
         assert result["name"] == "test_func"
 
     def test_get_callers(self, store, mock_session):
-        mock_session.run.return_value = [{"caller": {"name": "func_a"}}, {"caller": {"name": "func_b"}}]
+        mock_session.run.return_value = [
+            {"caller": {"name": "func_a"}},
+            {"caller": {"name": "func_b"}},
+        ]
         result = store.get_callers("target_func")
         assert len(result) == 2
 
@@ -69,6 +94,8 @@ class TestCodeGraphOperations:
         assert result[0]["name"] == "helper_func"
 
     def test_search_functions_semantic(self, store, mock_session):
-        mock_session.run.return_value = [{"f": {"name": "login", "body": "def login(): ..."}}]
+        mock_session.run.return_value = [
+            {"f": {"name": "login", "body": "def login(): ..."}}
+        ]
         result = store.search_functions("authentication")
         assert len(result) == 1
