@@ -117,6 +117,8 @@ services:
     volumes:
       - ./worktrees:/app/worktrees
       - ${SEA_QWENS_CONFIG_DIR:-~/.config/sea-qwens}/adapters:/app/adapters:ro
+      - ~/.qwen:/root/.qwen:ro
+      - ~/.qwen-accounts:/root/.qwen-accounts:ro
     networks:
       - sea-qwens-network
 

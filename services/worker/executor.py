@@ -154,37 +154,22 @@ class TaskExecutor:
 
     def _build_prompt(self, title: str, contract: dict) -> str:
         """Build prompt for the CLI tool with code graph tool instructions."""
-        prompt = f"""Implement the following task:
+        prompt = f"""You are a code generation agent. DO NOT ask questions, brainstorm, or seek clarification. DIRECTLY IMPLEMENT the requested code without any interaction.
+
+Task to implement:
 
 {title}
 
-Requirements (contract):
+Contract requirements:
 {json.dumps(contract, indent=2)}
 
-## Code Knowledge Graph Tools
+## Instructions
 
-You have access to a code knowledge graph. Instead of reading files, use these tools to understand the codebase:
-
-- `search_code(query)` - Find functions/classes by semantic search
-- `get_function(name)` - Get a function's body and signature
-- `get_callers(name)` - Find who calls this function
-- `get_callees(name)` - Find what this function calls
-- `get_full_context(name)` - Get complete context for understanding a function
-- `get_class(name)` - Get a class definition and all methods
-
-## Workflow
-
-1. Before implementing, search for existing related code
-2. Use `get_full_context` to understand call chains
-3. Implement your changes following existing patterns
-4. Ensure your code integrates with existing functions
-
-## Guidelines
-
-- Write clean, tested code
-- Follow best practices
-- Ensure all tests pass
-- Do not modify files outside the task scope
+1. Create all necessary files directly in the current directory
+2. Write clean, working code
+3. Do NOT ask questions or wait for user input
+4. Do NOT use visual companion or browser features
+5. Implement immediately and completely
 """
         return prompt
 

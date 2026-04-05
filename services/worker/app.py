@@ -138,12 +138,17 @@ async def _run_execution(
         worktree_path = wt_manager.create_worktree(task.task_id)
 
     try:
-        result = executor.execute_task(
-            task=task,
-            tool_id=tool_id,
-            tool_command=tool_command,
-            worktree_path=worktree_path,
-            adapter=adapter,
+        # Run blocking executor in thread pool to not block event loop
+        import asyncio
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            None,  # Use default ThreadPoolExecutor
+            executor.execute_task,
+            task,
+            tool_id,
+            tool_command,
+            worktree_path,
+            adapter,
         )
         _execution_store[task.task_id] = result
 
