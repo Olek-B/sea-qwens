@@ -96,9 +96,9 @@ class TestCreateProjectSpec:
         if unhealthy:
             pytest.skip(f"Services not available: {unhealthy}")
 
-    # -- Step 1: create a ProjectSpec via Librarian --------------------------
-    def test_create_project_spec(self):
-        """POST /project-specs → 201 with a valid spec id."""
+    @pytest.fixture
+    def spec_id(self):
+        """Create a ProjectSpec and yield its ID for use in dependent tests."""
         payload = {
             "name": f"e2e-test-{uuid.uuid4().hex[:8]}",
             "tech_stack": ["FastAPI", "React", "PostgreSQL"],
@@ -106,17 +106,23 @@ class TestCreateProjectSpec:
         }
         resp = requests.post(f"{LIBRARIAN_URL}/project-specs", json=payload, timeout=10)
         assert resp.status_code == 201, f"Expected 201, got {resp.status_code}: {resp.text}"
-
         body = resp.json()
         assert "id" in body, "Response must include an 'id' field"
-        self._spec_id = body["id"]
+        return body["id"]
+
+    # -- Step 1: create a ProjectSpec via Librarian --------------------------
+    def test_create_project_spec(self, spec_id):
+        """POST /project-specs → 201 with a valid spec id."""
+        assert spec_id is not None
+        assert isinstance(spec_id, str)
+        assert len(spec_id) > 0
 
     # -- Step 2: decompose the spec via Atomizer -----------------------------
-    def test_decompose_spec(self):
+    def test_decompose_spec(self, spec_id):
         """POST /decompose → 200 with a list of tasks."""
         resp = requests.post(
             f"{ATOMIZER_URL}/decompose",
-            json={"spec_id": self._spec_id},
+            json={"spec_id": spec_id},
             timeout=15,
         )
         assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
